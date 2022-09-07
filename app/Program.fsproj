@@ -6,17 +6,13 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Helpers.fs" />
-    <Compile Include="ShortGuid.fs" />
-    <Compile Include="FormatExpressions.fs" />
-    <Compile Include="HttpContext.fs" />
-    <Compile Include="Core.fs" />
-    <Compile Include="Routing.fs" />
-    <Compile Include="HttpHandler.fs" />
-    <Compile Include="Middleware.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Python" Version="0.17.0" />
     <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\Giraffe.Python.fsproj" />
   </ItemGroup>
 </Project>

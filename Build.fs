@@ -7,6 +7,7 @@ initializeContext()
 
 let buildPath = Path.getFullName "build"
 let srcPath = Path.getFullName "src"
+let appPath = Path.getFullName "app"
 let deployPath = Path.getFullName "deploy"
 let testsPath = Path.getFullName "test"
 
@@ -19,11 +20,13 @@ Target.create "Clean" (fun _ ->
 
 Target.create "Build" (fun _ ->
     Shell.mkdir buildPath
-    run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}" srcPath
+    run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}/lib" srcPath
 )
 
 Target.create "Run" (fun _ ->
-    run dotnet "build" srcPath
+    Shell.mkdir buildPath
+    run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}/app" appPath
+    run poetry $"""run uvicorn program:app  --port "8080" --workers 5""" $"{buildPath}/app"
 )
 
 Target.create "Test" (fun _ ->
