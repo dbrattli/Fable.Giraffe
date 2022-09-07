@@ -9,8 +9,9 @@ To build giraffe.python, run:
 > dotnet run Build
 ```
 
-Building Giraffe.Python may require the very latest Fable compiler. You
-can build against the latest version of Fable by running e.g:
+Building Giraffe.Python for development purposes may require the very
+latest Fable compiler. You can build against the latest version of Fable
+by running e.g:
 
 ```console
 > dotnet run --project ..\..\..\Fable\src\Fable.Cli --lang Python
@@ -24,6 +25,12 @@ directory:
 ```
 
 ## Running
+
+```console
+> dotnet run Run
+```
+
+If you want to start the server manually, you can run:
 
 ```console
 > poetry run uvicorn program:app  --port "8080" --workers 20
