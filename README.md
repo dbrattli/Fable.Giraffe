@@ -18,7 +18,7 @@ To build Fable.Giraffe, run:
 > dotnet run Build
 ```
 
-Building Giraffe.Python for development purposes may require the very
+Building Fable.Giraffe for development purposes may require the very
 latest Fable compiler. You can build against the latest version of Fable
 by running e.g:
 
