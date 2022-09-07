@@ -3,6 +3,7 @@ namespace Giraffe.Python
 open System.Collections.Generic
 open System.Threading.Tasks
 
+open Fable.SimpleJson.Python
 open Fable.Python.Json
 
 
@@ -31,20 +32,6 @@ module HttpMethods =
     let IsOptions (method: string) = method = "OPTIONS"
     let IsTrace (method: string) = method = "TRACE"
     let IsConnect (method: string) = method = "CONNECT"
-
-type ISerializer =
-    abstract SerializeToBytes: obj -> byte array
-    abstract SerializeToString: obj -> string
-    abstract Deserialize: string -> obj
-
-type JsonSerializer() =
-    interface ISerializer with
-        member this.SerializeToBytes obj : byte array =
-            let str = (this :> ISerializer).SerializeToString obj
-            System.Text.Encoding.UTF8.GetBytes str
-
-        member this.SerializeToString obj : string = json.dumps obj
-        member this.Deserialize(str: string) = json.loads str
 
 type HttpRequest(scope: Scope) =
     member x.Path: string option = scope["path"] :?> string |> Some
@@ -112,13 +99,6 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
 
             return Some ctx
         }
-
-    member x.GetJsonSerializer() : ISerializer = JsonSerializer() :> _
-
-    member ctx.WriteJsonAsync<'T>(dataObj: 'T) =
-        ctx.SetContentType "application/json; charset=utf-8"
-        let serializer = ctx.GetJsonSerializer()
-        serializer.SerializeToBytes dataObj |> ctx.WriteBytesAsync
 
     member ctx.SetStatusCode(statusCode: int) = ctx.Response.SetStatusCode(statusCode)
 

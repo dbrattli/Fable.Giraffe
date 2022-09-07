@@ -4,6 +4,8 @@ namespace Giraffe.Python
 open System.Text
 open System.Threading.Tasks
 
+open Fable.SimpleJson.Python
+
 type HttpFuncResult = Task<HttpContext option>
 
 type HttpFunc = HttpContext -> HttpFuncResult
@@ -75,14 +77,6 @@ module Core =
             fun (ctx: HttpContext) -> chooseHttpFunc funcs ctx
 
 
-    let text (str: string) : HttpHandler =
-        let bytes = Encoding.UTF8.GetBytes str
-
-        fun (_: HttpFunc) (ctx: HttpContext) ->
-            ctx.SetContentType "text/plain; charset=utf-8"
-            ctx.WriteBytesAsync bytes
-
-
     /// <summary>
     /// Filters an incoming HTTP request based on the HTTP verb.
     /// </summary>
@@ -121,7 +115,6 @@ module Core =
             ctx.SetStatusCode statusCode
             next ctx
 
-
     /// <summary>
     /// Adds or sets a HTTP header in the response.
     /// </summary>
@@ -135,14 +128,23 @@ module Core =
             ctx.SetHttpHeader(key, value)
             next ctx
 
+    let text (str: string) : HttpHandler =
+        let bytes = Encoding.UTF8.GetBytes str
+
+        fun (_: HttpFunc) (ctx: HttpContext) ->
+            ctx.SetContentType "text/plain; charset=utf-8"
+            ctx.WriteBytesAsync bytes
+
     /// <summary>
     /// Serializes an object to JSON and writes the output to the body of the HTTP response.
     /// It also sets the HTTP Content-Type header to application/json and sets the Content-Length header accordingly.
-    /// The JSON serializer can be configured in the ASP.NET Core startup code by registering a custom class of type <see cref="Json.ISerializer"/>.
     /// </summary>
     /// <param name="dataObj">The object to be send back to the client.</param>
     /// <param name="ctx"></param>
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
-    let json<'T> (dataObj: 'T) : HttpHandler =
-        fun (_: HttpFunc) (ctx: HttpContext) -> ctx.WriteJsonAsync dataObj
+    let inline json<'T> (dataObj: 'T) : HttpHandler =
+        fun (_: HttpFunc) (ctx: HttpContext) ->
+            let json =  Json.serialize dataObj
+            let bytes = Encoding.UTF8.GetBytes json
+            ctx.WriteBytesAsync bytes
