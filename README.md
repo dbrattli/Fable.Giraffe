@@ -1,8 +1,17 @@
-# Giraffe.Python
+# Fable.Giraffe
+
+[![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)¨
+
+Fable.Giraffe is a port of the
+[Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# library to
+[Fable](https://github.com/fable-compiler/Fable/) and
+[Fable.Python](https://github.com/fable-compiler/Fable.Python). Giraffe
+is high performance, functional ASP.NET Core micro web framework for
+building rich web applications.
 
 ## Build
 
-To build giraffe.python, run:
+To build Fable.Giraffe, run:
 
 ```console
 > poetry install

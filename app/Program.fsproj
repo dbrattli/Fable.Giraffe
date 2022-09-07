@@ -13,6 +13,6 @@
     <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Giraffe.Python.fsproj" />
+    <ProjectReference Include="..\src\Fable.Giraffe.fsproj" />
   </ItemGroup>
 </Project>
