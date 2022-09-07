@@ -18,5 +18,6 @@
   <ItemGroup>
     <PackageReference Include="Fable.Python" Version="0.17.0" />
     <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
+    <PackageReference Include="Fable.SimpleJson.Python" Version="1.5.0" />
   </ItemGroup>
 </Project>

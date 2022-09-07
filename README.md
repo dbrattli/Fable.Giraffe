@@ -1,6 +1,6 @@
 # Fable.Giraffe
 
-[![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)¨
+[![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)
 
 Fable.Giraffe is a port of the
 [Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# library to

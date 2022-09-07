@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Giraffe", "src\Fable.Giraffe.fsproj", "{0C57A6F8-DE9D-4AF0-B811-9DC6B8F04F80}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Giraffe.Tests", "test\Fable.Giraffe.Tests.fsproj", "{FDC2F895-981F-4BA1-A2D8-9F049F780875}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Program", "app\Program.fsproj", "{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C57A6F8-DE9D-4AF0-B811-9DC6B8F04F80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C57A6F8-DE9D-4AF0-B811-9DC6B8F04F80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C57A6F8-DE9D-4AF0-B811-9DC6B8F04F80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C57A6F8-DE9D-4AF0-B811-9DC6B8F04F80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FDC2F895-981F-4BA1-A2D8-9F049F780875}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FDC2F895-981F-4BA1-A2D8-9F049F780875}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FDC2F895-981F-4BA1-A2D8-9F049F780875}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FDC2F895-981F-4BA1-A2D8-9F049F780875}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

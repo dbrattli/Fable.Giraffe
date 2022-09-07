@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="Helpers.fs" />
+    <Compile Include="TestHttpHandler.fs" />
     <Compile Include="TestRouting.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

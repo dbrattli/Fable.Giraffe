@@ -35,6 +35,8 @@ module HttpHandler =
     /// </returns>
     let inline text (str: string) (source: HttpHandler) : HttpHandler = source >=> text str
 
+    let inline json (value: 'T) (source: HttpHandler) : HttpHandler = source >=> json value
+
     let inline route (path: string) (source: HttpHandler) : HttpHandler = source >=> route path
 
 [<AutoOpen>]
