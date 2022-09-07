@@ -43,7 +43,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         Dictionary<string, obj>(
             dict
                 [ ("type", "http.response.start" :> obj)
-                  ("status", 404)
+                  ("status", 200)
                   ("headers", ResizeArray<_>()) ]
         )
 
