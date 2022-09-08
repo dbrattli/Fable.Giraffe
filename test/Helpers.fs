@@ -35,12 +35,16 @@ let printBytes (bytes : byte[]) =
             | 0 -> $"%i{b}"
             | _ -> $"%s{s},%i{b}") ""
 
+let getContentType (response : HttpResponse) =
+    response.Headers["Content-Type"][0]
 
-type HttpTester (?method: string, ?path: string, ?status: int) =
+
+type HttpTester (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary) =
     let _method = defaultArg method "GET"
     let _path = defaultArg path "/"
     let _status = defaultArg status 200
-    let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status])
+    let _headers = defaultArg headers (HeaderDictionary()) |> (fun x -> x.Scoped)
+    let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status; "headers", _headers])
     let _response = Dictionary<string, obj> ()
 
     let send (response: Response) =
@@ -68,3 +72,6 @@ type HttpTester (?method: string, ?path: string, ?status: int) =
     member this.Text =
         let body = _response["body"] :?> byte array
         Encoding.UTF8.GetString(body)
+
+    member this.StatusCode = _response["status"] :?> int
+    //member this.Location = _response["location"] :?> string

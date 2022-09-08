@@ -12,6 +12,7 @@
     <Compile Include="HttpContext.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="Routing.fs" />
+    <Compile Include="Negotiation.fs" />
     <Compile Include="HttpHandler.fs" />
     <Compile Include="Middleware.fs" />
   </ItemGroup>

@@ -95,15 +95,13 @@ let ``test GET "/JSON" returns "BaR"`` () =
 
     let expected = "BaR" |> Encoding.UTF8.GetBytes
 
-    let tsk =
-        task {
-            let! result = app next test.Context
+    task {
+        let! result = app next test.Context
 
-            match result with
-            | None     -> failwith $"Result was expected to be {expected}"
-            | Some ctx -> test.Body |> equal expected
-        }
-    tsk.GetAwaiter().GetResult()
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
 // ---------------------------------
 // routex Tests
@@ -120,15 +118,13 @@ let ``test routex: GET "/" returns "Hello World"`` () =
 
     let expected = "Hello World" |> Encoding.UTF8.GetBytes
 
-    let tsk =
-        task {
-            let! result = app next test.Context
+    task {
+        let! result = app next test.Context
 
-            match result with
-            | None     -> failwith $"Result was expected to be {expected}"
-            | Some ctx -> test.Body |> equal expected
-        }
-    tsk.GetAwaiter().GetResult()
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
 [<Fact>]
 let ``test routex: GET "/foo" returns "bar"`` () =
@@ -474,37 +470,35 @@ let ``test routef: GET "/foo/bar/baz/qux" returns 404 "Not found"`` () =
 //         | Some ctx -> Assert.Equal(expected, getBody ctx)
 //     }
 //
-// // ---------------------------------
-// // routeBind Tests
-// // ---------------------------------
-//
-// [<CLIMutable>]
-// type RouteBind   = { Foo : string; Bar : int; Id : Guid }
-//
-// [<CLIMutable>]
-// type RouteBindId = { Id : Guid }
-//
-// type PaymentMethod =
-//     | Credit
-//     | Debit
-//
-// [<CLIMutable>]
-// type Purchase = { PaymentMethod : PaymentMethod }
-//
+// ---------------------------------
+// routeBind Tests
+// ---------------------------------
+
+[<CLIMutable>]
+type RouteBind   = { Foo : string; Bar : int; Id : Guid }
+
+[<CLIMutable>]
+type RouteBindId = { Id : Guid }
+
+type PaymentMethod =
+    | Credit
+    | Debit
+
+[<CLIMutable>]
+type Purchase = { PaymentMethod : PaymentMethod }
+
 // [<Fact>]
-// let ``routeBind: Route has matching union type``() =
-//     let ctx = Substitute.For<HttpContext>()
+// let ``test routeBind: Route has matching union type``() =
+//     let test = HttpTester(path="/credit")
 //     let app =
 //         GET >=> choose [
 //             routeBind<Purchase> "/{paymentMethod}"
 //                 (fun p -> sprintf "%s" (p.PaymentMethod.ToString()) |> text)
 //             setStatusCode 404 >=> text "Not found" ]
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/credit")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
+//
 //     let expected = "Credit"
 //     task {
-//         let! result = app next ctx
+//         let! result = app next test.Context
 //
 //         match result with
 //         | None     -> assertFailf "Result was expected to be %s" expected
