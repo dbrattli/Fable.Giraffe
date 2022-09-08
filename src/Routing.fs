@@ -1,9 +1,9 @@
-namespace Giraffe.Python
+namespace Fable.Giraffe
 
 open System
 open System.Text.RegularExpressions
 
-open Giraffe.Python.FormatExpressions
+open Fable.Giraffe.FormatExpressions
 
 [<RequireQualifiedAccess>]
 module SubRouting =

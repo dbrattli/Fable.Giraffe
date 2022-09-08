@@ -5,7 +5,7 @@ open System
 open System.Collections.Generic
 open System.Threading.Tasks
 
-open Giraffe.Python
+open Fable.Giraffe
 open System.Text
 
 // ---------------------------------

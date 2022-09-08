@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module Giraffe.Python.Negotiation
+module Fable.Giraffe.Negotiation
 
 open System
 open System.Collections.Generic
