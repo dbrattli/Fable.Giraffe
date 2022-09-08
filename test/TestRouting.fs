@@ -205,31 +205,28 @@ let ``test routex: GET "/foo2" returns "bar"`` () =
         | Some ctx -> test.Body |> equal expected
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
-// // ---------------------------------
-// // routeCix Tests
-// // ---------------------------------
-//
-// [<Fact>]
-// let ``routeCix: GET "/CaSe///" returns "right"`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         GET >=> choose [
-//             routex   "/case(/*)" >=> text "wrong"
-//             routeCix "/case(/*)" >=> text "right"
-//             setStatusCode 404    >=> text "Not found" ]
-//
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/CaSe///")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "right"
-//
-//     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
+// ---------------------------------
+// routeCix Tests
+// ---------------------------------
+
+[<Fact>]
+let ``test routeCix: GET "/CaSe///" returns "right"`` () =
+    let test = HttpTester(path="/CaSe///")
+    let app =
+        GET >=> choose [
+            routex   "/case(/*)" >=> text "wrong"
+            routeCix "/case(/*)" >=> text "right"
+            setStatusCode 404    >=> text "Not found" ]
+
+    let expected = "right" |> Encoding.UTF8.GetBytes
+
+    task {
+        let! result = app next test.Context
+        match result with
+        | None     ->failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
+
 //
 // ---------------------------------
 // routef Tests
@@ -413,63 +410,55 @@ let ``test routef: GET "/foo/bar/baz/qux" returns 404 "Not found"`` () =
             body |> equal expected
             ctx.Response.StatusCode |> equal 404
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
-//
-// // ---------------------------------
-// // routeCif Tests
-// // ---------------------------------
-//
-// [<Fact>]
-// let ``POST "/POsT/1" returns "1"`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     mockJson ctx (Newtonsoft None)
-//     let app =
-//         choose [
-//             GET >=> choose [
-//                 route "/" >=> text "Hello World" ]
-//             POST >=> choose [
-//                 route    "/post/1" >=> text "2"
-//                 routeCif "/post/%i" json ]
-//             setStatusCode 404 >=> text "Not found" ]
-//
-//     ctx.Request.Method.ReturnsForAnyArgs "POST" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/POsT/1")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "1"
-//
-//     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-//
-// [<Fact>]
-// let ``POST "/POsT/523" returns "523"`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     mockJson ctx (Newtonsoft None)
-//     let app =
-//         choose [
-//             GET >=> choose [
-//                 route "/" >=> text "Hello World" ]
-//             POST >=> choose [
-//                 route    "/post/1" >=> text "1"
-//                 routeCif "/post/%i" json ]
-//             setStatusCode 404 >=> text "Not found" ]
-//
-//     ctx.Request.Method.ReturnsForAnyArgs "POST" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/POsT/523")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "523"
-//
-//     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-//
+
+// ---------------------------------
+// routeCif Tests
+// ---------------------------------
+
+[<Fact>]
+let ``test POST "/POsT/1" returns "1"`` () =
+    let test = HttpTester(path="/POsT/1", method="POST")
+    let app =
+        choose [
+            GET >=> choose [
+                route "/" >=> text "Hello World" ]
+            POST >=> choose [
+                route    "/post/1" >=> text "2"
+                routeCif "/post/%i" json ]
+            setStatusCode 404 >=> text "Not found" ]
+
+    let expected = "1" |> Encoding.UTF8.GetBytes
+
+    task {
+        let! result = app next test.Context
+
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
+
+[<Fact>]
+let ``test POST "/POsT/523" returns "523"`` () =
+    let test = HttpTester(path="/POsT/523", method="POST")
+    let app =
+        choose [
+            GET >=> choose [
+                route "/" >=> text "Hello World" ]
+            POST >=> choose [
+                route    "/post/1" >=> text "1"
+                routeCif "/post/%i" json ]
+            setStatusCode 404 >=> text "Not found" ]
+
+    let expected = "523" |> Encoding.UTF8.GetBytes
+
+    task {
+        let! result = app next test.Context
+
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
+
 // ---------------------------------
 // routeBind Tests
 // ---------------------------------
@@ -700,69 +689,61 @@ type Purchase = { PaymentMethod : PaymentMethod }
 // // subRoute Tests
 // // ---------------------------------
 //
+[<Fact>]
+let ``test subRoute: Route with empty route`` () =
+    let test = HttpTester(path="/api", method="GET")
+    let app =
+        GET >=> choose [
+            route "/"    >=> text "Hello World"
+            route "/foo" >=> text "bar"
+            subRoute "/api" (
+                choose [
+                    route ""       >=> text "api root"
+                    route "/admin" >=> text "admin"
+                    route "/users" >=> text "users" ] )
+            route "/api/test" >=> text "test"
+            setStatusCode 404 >=> text "Not found" ]
+
+    let expected = "api root" |> Encoding.UTF8.GetBytes
+
+    task {
+        let! result = app next test.Context
+
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Body |> equal expected
+    } |> (fun tsk -> tsk.RunSynchronously())
+
+[<Fact>]
+let ``test subRoute: Normal nested route after subRoute`` () =
+    let test = HttpTester(path="/api/users", method="GET")
+    let app =
+        GET >=> choose [
+            route "/"    >=> text "Hello World"
+            route "/foo" >=> text "bar"
+            subRoute "/api" (
+                choose [
+                    route ""       >=> text "api root"
+                    route "/admin" >=> text "admin"
+                    route "/users" >=> text "users" ] )
+            route "/api/test" >=> text "test"
+            setStatusCode 404 >=> text "Not found" ]
+
+    let expected = "users"
+
+    task {
+        let! result = app next test.Context
+
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Text |> equal expected
+    } |> (fun tsk -> tsk.RunSynchronously())
+
 // [<Fact>]
-// let ``subRoute: Route with empty route`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         GET >=> choose [
-//             route "/"    >=> text "Hello World"
-//             route "/foo" >=> text "bar"
-//             subRoute "/api" (
-//                 choose [
-//                     route ""       >=> text "api root"
-//                     route "/admin" >=> text "admin"
-//                     route "/users" >=> text "users" ] )
-//             route "/api/test" >=> text "test"
-//             setStatusCode 404 >=> text "Not found" ]
-//
-//     ctx.Items.Returns (new Dictionary<obj,obj>() :> IDictionary<obj,obj>) |> ignore
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/api")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "api root"
+// let ``test subRoute: Route after subRoute has same beginning of path`` () =
 //
 //     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-//
-// [<Fact>]
-// let ``subRoute: Normal nested route after subRoute`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         GET >=> choose [
-//             route "/"    >=> text "Hello World"
-//             route "/foo" >=> text "bar"
-//             subRoute "/api" (
-//                 choose [
-//                     route ""       >=> text "api root"
-//                     route "/admin" >=> text "admin"
-//                     route "/users" >=> text "users" ] )
-//             route "/api/test" >=> text "test"
-//             setStatusCode 404 >=> text "Not found" ]
-//
-//     ctx.Items.Returns (new Dictionary<obj,obj>() :> IDictionary<obj,obj>) |> ignore
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/api/users")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "users"
-//
-//     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-//
-// [<Fact>]
-// let ``subRoute: Route after subRoute has same beginning of path`` () =
-//
-//     task {
-//         let ctx = Substitute.For<HttpContext>()
+//         let test = HttpTester(path="/api/test", method="GET")
 //
 //         let app =
 //             GET >=> choose [
@@ -776,56 +757,48 @@ type Purchase = { PaymentMethod : PaymentMethod }
 //                 route "/api/test" >=> text "test"
 //                 setStatusCode 404 >=> text "Not found" ]
 //
-//         ctx.Items.Returns (new Dictionary<obj,obj>() :> IDictionary<obj,obj>) |> ignore
-//         ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//         ctx.Request.Path.ReturnsForAnyArgs (PathString("/api/test")) |> ignore
-//         ctx.Response.Body <- new MemoryStream()
 //         let expected = "test"
 //
-//         let! result = app next ctx
+//         let! result = app next test.Context
 //
 //         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-//
-// [<Fact>]
-// let ``subRoute: Nested sub routes`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         GET >=> choose [
-//             route "/"    >=> text "Hello World"
-//             route "/foo" >=> text "bar"
-//             subRoute "/api" (
-//                 choose [
-//                     route ""       >=> text "api root"
-//                     route "/admin" >=> text "admin"
-//                     route "/users" >=> text "users"
-//                     subRoute "/v2" (
-//                         choose [
-//                             route ""       >=> text "api root v2"
-//                             route "/admin" >=> text "admin v2"
-//                             route "/users" >=> text "users v2"
-//                         ]
-//                     )
-//                 ]
-//             )
-//             route "/api/test" >=> text "test"
-//             setStatusCode 404 >=> text "Not found" ]
-//
-//     ctx.Items.Returns (new Dictionary<obj,obj>() :> IDictionary<obj,obj>) |> ignore
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/api/v2/users")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "users v2"
-//
-//     task {
-//         let! result = app next ctx
-//
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
+//         | None     -> failwith $"Result was expected to be {expected}"
+//         | Some ctx -> test.Text |> equal expected
+//     } |> (fun tsk -> tsk.RunSynchronously())
+
+[<Fact>]
+let ``test subRoute: Nested sub routes`` () =
+    let test = HttpTester(path="/api/v2/users", method="GET")
+    let app =
+        GET >=> choose [
+            route "/"    >=> text "Hello World"
+            route "/foo" >=> text "bar"
+            subRoute "/api" (
+                choose [
+                    route ""       >=> text "api root"
+                    route "/admin" >=> text "admin"
+                    route "/users" >=> text "users"
+                    subRoute "/v2" (
+                        choose [
+                            route ""       >=> text "api root v2"
+                            route "/admin" >=> text "admin v2"
+                            route "/users" >=> text "users v2"
+                        ]
+                    )
+                ]
+            )
+            route "/api/test" >=> text "test"
+            setStatusCode 404 >=> text "Not found" ]
+
+    let expected = "users v2"
+
+    task {
+        let! result = app next test.Context
+
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some ctx -> test.Text |> equal expected
+    } |> (fun tsk -> tsk.RunSynchronously())
 //
 // [<Fact>]
 // let ``subRoute: Multiple nested sub routes`` () =

@@ -50,15 +50,15 @@ let ``test GET "/json" returns json object`` () =
             route "/json" >=> json { foo = "john"; bar = "doe"; age = 30 }
             setStatusCode 404 >=> text "Not found" ]
 
-    let expected = "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}" |> Encoding.UTF8.GetBytes
+    let expected = "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}"
 
     task {
         let! result = app next test.Context
 
         match result with
         | None     -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> test.Body |> equal expected
-    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
+        | Some ctx -> test.Text |> equal expected
+    } |> (fun tsk -> tsk.RunSynchronously())
 
 // [<Theory>]
 // [<MemberData("PreserveCaseData", MemberType = typedefof<JsonSerializersData>)>]
