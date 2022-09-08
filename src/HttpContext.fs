@@ -1,10 +1,11 @@
 namespace Giraffe.Python
 
+open System
 open System.Collections.Generic
+open System.Text
 open System.Threading.Tasks
 
 open Fable.SimpleJson.Python
-open Fable.Python.Json
 
 
 type Scope = Dictionary<string, obj>
@@ -33,10 +34,73 @@ module HttpMethods =
     let IsTrace (method: string) = method = "TRACE"
     let IsConnect (method: string) = method = "CONNECT"
 
-type HttpRequest(scope: Scope) =
+type HeaderDictionary(headers: Dictionary<string, StringValues>) =
+    new(headers: Dictionary<string, string>) =
+        let dict = headers |> Seq.map (fun (KeyValue (k, v)) -> (k, StringValues v)) |> dict
+        HeaderDictionary(Dictionary(dict))
+
+    new() = HeaderDictionary(Dictionary<string, StringValues>())
+
+    member x.Item(key: string) = headers[key.ToLower()]
+
+    member x.Add(key: string, value: string) =
+        headers[key.ToLower()] <- StringValues(value)
+
+    member x.Add(key: string, value: StringValues) = headers[key.ToLower()] <- value
+
+    member x.Scoped =
+        headers
+        |> Seq.map (fun (KeyValue (k, v)) -> ResizeArray([ k; v.ToString() ]))
+        |> ResizeArray
+
+
+type StringSegment (value: string) =
+    member x.Value = value
+
+    override x.ToString() = value
+
+    static member Empty = StringSegment("")
+
+[<AllowNullLiteral>]
+type MediaTypeHeaderValue(value: string) =
+    let parts = value.Split(';')
+    let mediaType = parts.[0].Trim()
+    let charset = parts |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
+    let charset = charset |> Option.map (fun c -> c.Split('=').[1].Trim())
+
+    member x.MediaType = StringSegment(mediaType)
+    member x.Quality = Nullable 1.0
+    member x.Charset = charset
+
+    override x.ToString() = value
+
+type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
+    member x.Accept
+        with get () =
+            let found = headers |> Seq.tryFind (fun x -> x[0].ToLower() = "accept")
+
+            match found with
+            | Some value -> value |> Seq.map MediaTypeHeaderValue |> ResizeArray
+            | _ -> ResizeArray<MediaTypeHeaderValue>()
+
+        and set (value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
+
+type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
     member x.Path: string option = scope["path"] :?> string |> Some
 
     member x.Method: string = scope["method"] :?> string
+
+    member x.GetTypedHeaders() : RequestHeaders =
+        RequestHeaders(scope["headers"] :?> ResizeArray<ResizeArray<string>>)
+
+    member x.GetBodyAsync () =
+        task {
+            let! response = receive ()
+            return response["body"] :?> byte array
+        }
+
+    member x.Headers =
+        scope["headers"] :?> Dictionary<string, string> |> HeaderDictionary
 
 type HttpResponse(send: Request -> Task<unit>) =
     let responseStart =
@@ -50,13 +114,15 @@ type HttpResponse(send: Request -> Task<unit>) =
     let responseBody =
         Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
 
+    member x.Headers =
+        responseStart["headers"] :?> Dictionary<string, string> |> HeaderDictionary
+
     member val HasStarted: bool = false with get, set
 
     member x.StatusCode
         with get () = responseStart["status"] :?> int
 
         and set (value: int) = responseStart["status"] <- value
-
 
     member x.WriteAsync(bytes: byte[]) =
         task {
@@ -76,13 +142,24 @@ type HttpResponse(send: Request -> Task<unit>) =
 
     member x.SetStatusCode(status: int) = responseStart["status"] <- status
 
+    member x.Redirect(location: string, permanent: bool) =
+        let statusCode =
+            if permanent then
+                301
+            else
+                302
+
+        x.SetStatusCode(statusCode)
+        x.SetHttpHeader("Location", location)
+
 type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
+    do printfn "Scope  %A" scope
     let scope = scope
     let send = send
 
     let items = Dictionary<string, obj>()
 
-    let request = HttpRequest(scope)
+    let request = HttpRequest(scope, receive)
     let response = HttpResponse(send)
 
     member _.Items = items
@@ -106,3 +183,12 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
 
     member ctx.SetContentType(contentType: string) =
         ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
+
+    member inline x.BindJsonAsync<'T>() =
+        task {
+            let! body = x.Request.GetBodyAsync ()
+            return body |> Encoding.UTF8.GetString |> Json.parseNativeAs<'T>
+        }
+
+    member inline x.GetService<'T>() : 'T =
+        obj () :?> 'T

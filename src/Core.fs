@@ -76,7 +76,6 @@ module Core =
             let funcs = handlers |> List.map (fun h -> h next)
             fun (ctx: HttpContext) -> chooseHttpFunc funcs ctx
 
-
     /// <summary>
     /// Filters an incoming HTTP request based on the HTTP verb.
     /// </summary>
@@ -128,6 +127,83 @@ module Core =
             ctx.SetHttpHeader(key, value)
             next ctx
 
+    // <summary>
+    /// Filters an incoming HTTP request based on the accepted mime types of the client (Accept HTTP header).
+    /// If the client doesn't accept any of the provided mimeTypes then the handler will not continue executing the next <see cref="HttpHandler"/> function.
+    /// </summary>
+    /// <param name="mimeTypes">List of mime types of which the client has to accept at least one.</param>
+    /// <param name="next"></param>
+    /// <param name="ctx"></param>
+    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
+    let mustAccept (mimeTypes: string list) : HttpHandler =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            let headers = ctx.Request.GetTypedHeaders()
+
+            headers.Accept
+            |> Seq.map (fun h -> h.ToString())
+            |> Seq.exists (fun h ->
+                mimeTypes |> Seq.contains h)
+            |> function
+                | true -> next ctx
+                | false -> skipPipeline ()
+
+    /// <summary>
+    /// Redirects to a different location with a `302` or `301` (when permanent) HTTP status code.
+    /// </summary>
+    /// <param name="permanent">If true the redirect is permanent (301), otherwise temporary (302).</param>
+    /// <param name="location">The URL to redirect the client to.</param>
+    /// <param name="next"></param>
+    /// <param name="ctx"></param>
+    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
+    let redirectTo (permanent: bool) (location: string) : HttpHandler =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            ctx.Response.Redirect(location, permanent)
+            Task.FromResult(Some ctx)
+
+    // ---------------------------
+    // Model binding functions
+    // ---------------------------
+
+    /// <summary>
+    /// Parses a JSON payload into an instance of type 'T.
+    /// </summary>
+    /// <param name="f">A function which accepts an object of type 'T and returns a <see cref="HttpHandler"/> function.</param>
+    /// <param name="next"></param>
+    /// <param name="ctx"></param>
+    /// <typeparam name="'T"></typeparam>
+    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
+    let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let! model = ctx.BindJsonAsync<'T>()
+                return! f model next ctx
+            }
+
+    /// <summary>
+    /// Writes a byte array to the body of the HTTP response and sets the HTTP Content-Length header accordingly.
+    /// </summary>
+    /// <param name="bytes">The byte array to be send back to the client.</param>
+    /// <param name="ctx"></param>
+    /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
+    let setBody (bytes : byte array) : HttpHandler =
+        fun (_ : HttpFunc) (ctx : HttpContext) ->
+            ctx.WriteBytesAsync bytes
+
+    // <summary>
+    /// Writes an UTF-8 encoded string to the body of the HTTP response and sets the HTTP Content-Length header accordingly.
+    /// </summary>
+    /// <param name="str">The string value to be send back to the client.</param>
+    /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
+    let setBodyFromString (str : string) : HttpHandler =
+        let bytes = Encoding.UTF8.GetBytes str
+        fun (_ : HttpFunc) (ctx : HttpContext) ->
+            ctx.WriteBytesAsync bytes
+
+    /// <summary>
+    /// Writes an UTF-8 encoded string to the body of the HTTP response and sets the HTTP Content-Length header accordingly, as well as the Content-Type header to text/plain.
+    /// </summary>
+    /// <param name="str">The string value to be send back to the client.</param>
+    /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
     let text (str: string) : HttpHandler =
         let bytes = Encoding.UTF8.GetBytes str
 
@@ -145,6 +221,7 @@ module Core =
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
     let inline json<'T> (dataObj: 'T) : HttpHandler =
         fun (_: HttpFunc) (ctx: HttpContext) ->
-            let json =  Json.serialize dataObj
+            let json = Json.serialize dataObj
             let bytes = Encoding.UTF8.GetBytes json
+            ctx.SetContentType "application/json; charset=utf-8"
             ctx.WriteBytesAsync bytes

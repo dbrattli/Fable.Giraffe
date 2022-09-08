@@ -1,11 +1,28 @@
 namespace Giraffe.Python
 
-type StringValues (strings: string []) =
-    new (str: string) = StringValues [| str |]
+open System
+open System.Collections.Generic
+
+type StringValues(strings: string[]) =
+    new(str: string) = StringValues [| str |]
 
     member x.Count = strings.Length
     member x.ToArray() = strings
+
+    member x.Item
+        with get (index: int) = strings[index]
+
+    override x.ToString() = String.Join(", ", strings)
+
+    interface IEnumerable<string> with
+        member x.GetEnumerator() =
+            (strings :> IEnumerable<string>).GetEnumerator()
+
+        member x.GetEnumerator() : System.Collections.IEnumerator =
+            (strings :> System.Collections.IEnumerable).GetEnumerator()
+
     static member Empty = StringValues [||]
+
 
 
 [<AutoOpen>]
@@ -25,16 +42,16 @@ module Helpers =
     /// </summary>
     /// <param name="str">The string value to be converted into an option of string.</param>
     /// <returns>Returns None if the string was null or empty otherwise Some string.</returns>
-    let inline strOption (str : string) =
+    let inline strOption (str: string) =
         if String.IsNullOrEmpty str then None else Some str
 
-    /// <summary>
-    /// Reads a file asynchronously from the file system.
-    /// </summary>
-    /// <param name="filePath">The absolute path of the file.</param>
-    /// <returns>Returns the string contents of the file wrapped in a Task.</returns>
-    // let readFileAsStringAsync (filePath : string) =
-    //     task {
-    //         use reader = new StreamReader(filePath)
-    //         return! reader.ReadToEndAsync()
-    //     }
+/// <summary>
+/// Reads a file asynchronously from the file system.
+/// </summary>
+/// <param name="filePath">The absolute path of the file.</param>
+/// <returns>Returns the string contents of the file wrapped in a Task.</returns>
+// let readFileAsStringAsync (filePath : string) =
+//     task {
+//         use reader = new StreamReader(filePath)
+//         return! reader.ReadToEndAsync()
+//     }

@@ -168,3 +168,5 @@ let tryMatchInputExact (format: PrintfFormat<_, _, _, _, 'T>) (ignoreCase: bool)
 /// Returns `unit` if validation was successful otherwise will throw an `Exception`.
 /// Returns `unit` if validation was successful otherwise will throw an `Exception`.
 /// Returns `unit` if validation was successful otherwise will throw an `Exception`.
+/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
+/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
