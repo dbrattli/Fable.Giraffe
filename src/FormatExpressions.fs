@@ -1,4 +1,4 @@
-module Giraffe.Python.FormatExpressions
+module Fable.Giraffe.FormatExpressions
 
 open System
 open System.Text.RegularExpressions

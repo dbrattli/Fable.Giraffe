@@ -1,4 +1,4 @@
-namespace Giraffe.Python
+namespace Fable.Giraffe
 
 open System
 open System.Collections.Generic

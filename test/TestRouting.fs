@@ -3,7 +3,7 @@ module Giraffe.Tests.RoutingTests
 open System
 open System.Text
 
-open Giraffe.Python
+open Fable.Giraffe
 open Fable.Python.Tests.Util.Testing
 
 // ---------------------------------

@@ -1,4 +1,4 @@
-namespace Giraffe.Python
+namespace Fable.Giraffe
 
 /// <summary>
 /// Short GUIDs are a shorter, URL-friendlier version

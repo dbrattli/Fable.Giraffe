@@ -4,7 +4,7 @@ open System
 open System.Text
 open System.Collections.Generic
 
-open Giraffe.Python
+open Fable.Giraffe
 open Fable.Python.Tests.Util.Testing
 //open Giraffe.ViewEngine
 
