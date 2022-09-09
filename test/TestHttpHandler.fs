@@ -290,71 +290,64 @@ let ``test POST "/json" with supported Accept header returns "json"`` () =
             ctx.Response |> getContentType |> equal "application/json; charset=utf-8"
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
-// [<Fact>]
-// let ``POST "/either" with supported Accept header returns "either"`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         choose [
-//             GET >=> choose [
-//                 route "/"     >=> text "Hello World"
-//                 route "/foo"  >=> text "bar" ]
-//             POST >=> choose [
-//                 route "/text"   >=> mustAccept [ "text/plain" ] >=> text "text"
-//                 route "/json"   >=> mustAccept [ "application/json" ] >=> json "json"
-//                 route "/either" >=> mustAccept [ "text/plain"; "application/json" ] >=> text "either" ]
-//             setStatusCode 404 >=> text "Not found" ]
+[<Fact>]
+let ``test POST "/either" with supported Accept header returns "either"`` () =
+    let headers = HeaderDictionary()
+    headers.Add("Accept", StringValues("application/json"))
+    let testCtx = HttpTestContext(path="/either", method="POST", headers=headers)
+    let app =
+        choose [
+            GET >=> choose [
+                route "/"     >=> text "Hello World"
+                route "/foo"  >=> text "bar" ]
+            POST >=> choose [
+                route "/text"   >=> mustAccept [ "text/plain" ] >=> text "text"
+                route "/json"   >=> mustAccept [ "application/json" ] >=> json "json"
+                route "/either" >=> mustAccept [ "text/plain"; "application/json" ] >=> text "either" ]
+            setStatusCode 404 >=> text "Not found" ]
 
-//     let headers = HeaderDictionary()
-//     headers.Add("Accept", StringValues("application/json"))
-//     ctx.Request.Method.ReturnsForAnyArgs "POST" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/either")) |> ignore
-//     ctx.Request.Headers.ReturnsForAnyArgs(headers) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "either"
+    let expected = "either" |> Encoding.UTF8.GetBytes
 
-//     task {
-//         let! result = app next ctx
+    task {
+        let! result = app next testCtx
 
-//         match result with
-//         | None -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx ->
-//             let body = getBody ctx
-//             Assert.Equal(expected, body)
-//             Assert.Equal("text/plain; charset=utf-8", ctx.Response |> getContentType)
-//     }
+        match result with
+         None -> failwith $"Result was expected to be {expected}"
+        | Some ctx ->
+            let body = testCtx.Body
+            body |> equal expected
+            ctx.Response |> getContentType |> equal "text/plain; charset=utf-8"
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
-// [<Fact>]
-// let ``POST "/either" with unsupported Accept header returns 404 "Not found"`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let app =
-//         choose [
-//             GET >=> choose [
-//                 route "/"     >=> text "Hello World"
-//                 route "/foo"  >=> text "bar" ]
-//             POST >=> choose [
-//                 route "/text"   >=> mustAccept [ "text/plain" ] >=> text "text"
-//                 route "/json"   >=> mustAccept [ "application/json" ] >=> json "json"
-//                 route "/either" >=> mustAccept [ "text/plain"; "application/json" ] >=> text "either" ]
-//             setStatusCode 404 >=> text "Not found" ]
 
-//     let headers = HeaderDictionary()
-//     headers.Add("Accept", StringValues("application/xml"))
-//     ctx.Request.Method.ReturnsForAnyArgs "POST" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/either")) |> ignore
-//     ctx.Request.Headers.ReturnsForAnyArgs(headers) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "Not found"
+[<Fact>]
+let ``test POST "/either" with unsupported Accept header returns 404 "Not found"`` () =
+    let headers = HeaderDictionary()
+    headers.Add("Accept", StringValues("application/xml"))
+    let testCtx = HttpTestContext(path="/either", method="POST", headers=headers)
+    let app =
+        choose [
+            GET >=> choose [
+                route "/"     >=> text "Hello World"
+                route "/foo"  >=> text "bar" ]
+            POST >=> choose [
+                route "/text"   >=> mustAccept [ "text/plain" ] >=> text "text"
+                route "/json"   >=> mustAccept [ "application/json" ] >=> json "json"
+                route "/either" >=> mustAccept [ "text/plain"; "application/json" ] >=> text "either" ]
+            setStatusCode 404 >=> text "Not found" ]
 
-//     task {
-//         let! result = app next ctx
+    let expected = "Not found" |> Encoding.UTF8.GetBytes
 
-//         match result with
-//         | None -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx ->
-//             let body = getBody ctx
-//             Assert.Equal(expected, body)
-//             Assert.Equal(404, ctx.Response.StatusCode)
-//     }
+    task {
+        let! result = app next testCtx
+
+        match result with
+         None -> failwith $"Result was expected to be {expected}"
+        | Some ctx ->
+            let body = testCtx.Body
+            body |> equal expected
+            ctx.Response.StatusCode |> equal 404
+    } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
 // [<Fact>]
 // let ``GET "/person" returns rendered HTML view`` () =
