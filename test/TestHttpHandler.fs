@@ -42,7 +42,7 @@ type Person =
 
 [<Fact>]
 let ``test GET "/json" returns json object`` () =
-    let test = HttpTester(path="/json")
+    let testCtx = HttpTestContext(path="/json")
     let app =
         GET >=> choose [
             route "/"     >=> text "Hello World"
@@ -50,14 +50,14 @@ let ``test GET "/json" returns json object`` () =
             route "/json" >=> json { foo = "john"; bar = "doe"; age = 30 }
             setStatusCode 404 >=> text "Not found" ]
 
-    let expected = "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}"
+    let expected = "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None     -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> test.Text |> equal expected
+        | Some ctx -> testCtx.Body |> equal expected
     } |> (fun tsk -> tsk.RunSynchronously())
 
 // [<Theory>]
@@ -162,7 +162,7 @@ let ``test GET "/json" returns json object`` () =
 
 [<Fact>]
 let ``test POST "/post/1" returns "1"`` () =
-    let test = HttpTester(path="/post/1", method="POST")
+    let testCtx = HttpTestContext(path="/post/1", method="POST")
     let app =
         choose [
             GET >=> choose [
@@ -176,16 +176,16 @@ let ``test POST "/post/1" returns "1"`` () =
     let expected = "1" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None     -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> test.Body |> equal expected
+        | Some ctx -> testCtx.Body |> equal expected
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
 
 [<Fact>]
 let ``test POST "/post/2" returns "2"`` () =
-    let test = HttpTester(path="/post/2", method="POST")
+    let test = HttpTestContext(path="/post/2", method="POST")
     let app =
         choose [
             GET >=> choose [
@@ -199,7 +199,7 @@ let ``test POST "/post/2" returns "2"`` () =
     let expected = "2" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next test
 
         match result with
          None     -> failwith $"Result was expected to be {expected}"
@@ -208,7 +208,7 @@ let ``test POST "/post/2" returns "2"`` () =
 
 [<Fact>]
 let ``test PUT "/post/2" returns 404 "Not found"`` () =
-    let test = HttpTester(path="/post/2", method="PUT")
+    let testCtx = HttpTestContext(path="/post/2", method="PUT")
     let app =
         choose [
             GET >=> choose [
@@ -222,12 +222,12 @@ let ``test PUT "/post/2" returns 404 "Not found"`` () =
     let expected = "Not found" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None -> failwith $"Result was expected to be {expected}"
         | Some ctx ->
-            let body = test.Body
+            let body = testCtx.Body
             body |> equal expected
             ctx.Response.StatusCode |> equal 404
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
@@ -236,7 +236,7 @@ let ``test PUT "/post/2" returns 404 "Not found"`` () =
 let ``test POST "/text" with supported Accept header returns "text"`` () =
     let headers = HeaderDictionary()
     headers.Add("Accept", StringValues("text/plain"))
-    let test = HttpTester(path="/text", method="POST", headers=headers)
+    let testCtx = HttpTestContext(path="/text", method="POST", headers=headers)
     let app =
         choose [
             GET >=> choose [
@@ -251,12 +251,12 @@ let ``test POST "/text" with supported Accept header returns "text"`` () =
     let expected = "text" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None -> failwith $"Result was expected to be {expected}"
         | Some ctx ->
-            let body = test.Body
+            let body = testCtx.Body
             body |> equal expected
             ctx.Response |> getContentType |> equal "text/plain; charset=utf-8"
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
@@ -265,7 +265,7 @@ let ``test POST "/text" with supported Accept header returns "text"`` () =
 let ``test POST "/json" with supported Accept header returns "json"`` () =
     let headers = HeaderDictionary()
     headers.Add("Accept", StringValues("application/json"))
-    let test = HttpTester(path="/json", method="POST", headers=headers)
+    let testCtx = HttpTestContext(path="/json", method="POST", headers=headers)
     let app =
         choose [
             GET >=> choose [
@@ -280,12 +280,12 @@ let ``test POST "/json" with supported Accept header returns "json"`` () =
     let expected = "\"json\"" |> Encoding.UTF8.GetBytes
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None -> failwith $"Result was expected to be {expected}"
         | Some ctx ->
-            let body = test.Body
+            let body = testCtx.Body
             body |> equal expected
             ctx.Response |> getContentType |> equal "application/json; charset=utf-8"
     } |> (fun tsk -> tsk.GetAwaiter().GetResult())
@@ -438,7 +438,7 @@ let ``test POST "/json" with supported Accept header returns "json"`` () =
 
 [<Fact>]
 let ``test GET "/redirect" redirect to "/" `` () =
-    let test = HttpTester(path="/redirect", method="GET")
+    let testCtx = HttpTestContext(path="/redirect", method="GET")
     let app =
         GET >=> choose [
             route "/"         >=> text "Hello World"
@@ -446,7 +446,7 @@ let ``test GET "/redirect" redirect to "/" `` () =
             setStatusCode 404 >=> text "Not found" ]
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None     -> failwith "It was expected that the request would be redirected"
@@ -457,7 +457,7 @@ let ``test GET "/redirect" redirect to "/" `` () =
 
 [<Fact>]
 let ``test POST "/redirect" redirect to "/" `` () =
-    let test = HttpTester(path="/redirect", method="POST")
+    let testCtx = HttpTestContext(path="/redirect", method="POST")
     let app =
         POST >=> choose [
             route "/"         >=> text "Hello World"
@@ -465,7 +465,7 @@ let ``test POST "/redirect" redirect to "/" `` () =
             setStatusCode 404 >=> text "Not found" ]
 
     task {
-        let! result = app next test.Context
+        let! result = app next testCtx
 
         match result with
         | None     -> failwith "It was expected that the request would be redirected"
