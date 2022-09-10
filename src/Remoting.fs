@@ -95,8 +95,8 @@ let inline fromValue (api: 'T)  () =
 
             let method = Signature.Create<_,_,_,_>(value, argCount)
 
-            let fieldName = dashify "_" field.Name
-            dashifyRoute $"/{fieldName}" >=> fun _ ctx ->
+            let methodName = dashify "_" field.Name
+            dashifyRoute $"/{methodName}" >=> fun _ ctx ->
                 task {
                     let! arg =
                         task {
