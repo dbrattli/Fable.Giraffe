@@ -113,7 +113,20 @@ let inline fromValue (api: 'T)  () =
 
             route $"/{fieldName}" >=> fun _ ctx ->
                 task {
-                    let! output = method () |> Async.StartAsTask
+                    // Read arguments from request body
+                    let! arg =
+                        task {
+                            match argumentType with
+                            | PrimitiveType TypeInfo.Unit ->
+                                return () :> obj
+                            | _ ->
+                                let! json = ctx.ReadBodyFromRequestAsync()
+                                let inputJson = SimpleJson.parseNative json
+                                let typeInfo = (fun _ -> createTypeInfo argumentType) |> TypeInfo.List
+                                let args = Convert.fromJson<List<_>> inputJson typeInfo
+                                return args.[0] :> obj
+                        }
+                    let! output = method arg |> Async.StartAsTask
                     printfn "output: %A" output
                     let typeInfo = createTypeInfo (typeBFromAsyncOfB)
                     printfn "TypeInfo: %A" typeInfo

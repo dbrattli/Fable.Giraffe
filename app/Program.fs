@@ -1,7 +1,7 @@
 module Program
 
-open Giraffe.Python
-open Giraffe.Python.Pipelines
+open Fable.Giraffe
+open Fable.Giraffe.Pipelines
 
 type Object = { Name : string; Age : int }
 

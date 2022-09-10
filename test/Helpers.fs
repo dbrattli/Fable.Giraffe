@@ -43,7 +43,7 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
 
     member val buffer : ResizeArray<byte array> = body with get, set
 
-    new (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary) =
+    new (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string) =
 
         let _method = defaultArg method "GET"
         let _path = defaultArg path "/"
@@ -67,7 +67,7 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
 
                     if key = "body" then
                         match value with
-                        //| :? (byte array) as bytes -> // TODO: wait for upstream fix
+                        //| :? (byte array) as bytes -> // TODO: wait for upstream Fable fix
                         | bytes ->
                             _body.Add (bytes :?> byte array)
                         | _ -> failwith "Body must be a byte array"
@@ -75,7 +75,8 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
 
         let receive () =
             task {
-                return Dictionary<string, obj> ()
+                let bytes = body |> Option.defaultValue "" |> Encoding.UTF8.GetBytes
+                return Dictionary<string, obj> (dict ["body", bytes :> obj])
             }
 
         HttpTestContext(_scope, receive, send, _body)

@@ -184,6 +184,12 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member ctx.SetContentType(contentType: string) =
         ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
 
+    member ctx.ReadBodyFromRequestAsync() : Task<string> =
+        task {
+            let! bytes = ctx.Request.GetBodyAsync()
+            return bytes |> Encoding.UTF8.GetString
+        }
+
     member inline x.BindJsonAsync<'T>() =
         task {
             let! body = x.Request.GetBodyAsync ()

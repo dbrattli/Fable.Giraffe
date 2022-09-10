@@ -25,4 +25,7 @@
   <ItemGroup>
     <Content Include="..\pyproject.toml; *.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Fable.SimpleJson.Python\src\Fable.SimpleJson.Python.fsproj" />
+  </ItemGroup>
 </Project>

@@ -42,19 +42,18 @@ let ``test remoting: GET "/IServer/getNumbers" returns numbers`` () =
         | Some _ -> testCtx.Body |> equal expected
     } |> (fun tsk -> tsk.RunSynchronously())
 
-// [<Fact>]
-// let ``test remoting: GET "/greet" returns "Hello World"`` () =
-//     let testCtx = HttpTestContext(path="/")
-//     let app =
-//         Remoting.createApi()
-//         |> Remoting.fromValue greetingApi
-//
-//     let expected = "Hello World" |> Encoding.UTF8.GetBytes
-//     failwith ""
-//
-//     task {
-//         let! result = app next testCtx
-//         match result with
-//         | None     -> failwith $"Result was expected to be {expected}"
-//         | Some _ -> testCtx.Body |> equal expected
-//     } |> (fun tsk -> tsk.RunSynchronously)
+[<Fact>]
+let ``test remoting: GET "/greet" returns "Hello World"`` () =
+    let testCtx = HttpTestContext(path="/IServer/greet", method="POST", body="""["World"]""")
+    let app =
+        Remoting.createApi()
+        |> Remoting.fromValue greetingApi
+
+    let expected = "\"Hello, World\"" |> Encoding.UTF8.GetBytes
+
+    task {
+        let! result = app next testCtx
+        match result with
+        | None     -> failwith $"Result was expected to be {expected}"
+        | Some _ -> testCtx.Body |> equal expected
+    } |> (fun tsk -> tsk.RunSynchronously())
