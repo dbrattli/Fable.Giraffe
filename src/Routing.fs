@@ -22,21 +22,20 @@ module SubRouting =
         | _ -> ctx.Request.Path.Value
 
     let routeWithPartialPath (path: string) (handler: HttpHandler) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) ->
-            task {
-                let savedPartialPath = getSavedPartialPath ctx
-                ctx.Items.Item RouteKey <- ((savedPartialPath |> Option.defaultValue "") + path)
-                let! result = handler next ctx
+        fun (next: HttpFunc) (ctx: HttpContext) -> task {
+            let savedPartialPath = getSavedPartialPath ctx
+            ctx.Items[ RouteKey ] <- ((savedPartialPath |> Option.defaultValue "") + path)
+            let! result = handler next ctx
 
-                match result with
-                | Some _ -> ()
-                | None ->
-                    match savedPartialPath with
-                    | Some subPath -> ctx.Items[RouteKey] <- subPath
-                    | None -> ctx.Items.Remove RouteKey |> ignore
+            match result with
+            | Some _ -> ()
+            | None ->
+                match savedPartialPath with
+                | Some subPath -> ctx.Items[ RouteKey ] <- subPath
+                | None -> ctx.Items.Remove RouteKey |> ignore
 
-                return result
-            }
+            return result
+        }
 
 [<AutoOpen>]
 module Routing =
@@ -66,13 +65,15 @@ module Routing =
     /// </summary>
     /// <param name="path">Regex path.</param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
-    let routeCix (path : string) : HttpHandler =
+    let routeCix (path: string) : HttpHandler =
         let pattern = sprintf "^%s$" path
-        let regex   = Regex(pattern, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
-        fun (next : HttpFunc) (ctx : HttpContext) ->
-            let result = regex.Match (SubRouting.getNextPartOfPath ctx)
+        let regex = Regex(pattern, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
+
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            let result = regex.Match(SubRouting.getNextPartOfPath ctx)
+
             match result.Success with
-            | true  -> next ctx
+            | true -> next ctx
             | false -> skipPipeline ()
 
     /// <summary>
@@ -101,14 +102,15 @@ module Routing =
     /// <param name="path">Regex path.</param>
     /// <param name="routeHandler">A function which accepts a string sequence of the matched groups and returns a `HttpHandler` function which will subsequently deal with the request.</param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
-    let routexp (path : string) (routeHandler : seq<string> -> HttpHandler): HttpHandler =
+    let routexp (path: string) (routeHandler: seq<string> -> HttpHandler) : HttpHandler =
         let pattern = sprintf "^%s$" path
-        let regex   = Regex(pattern, RegexOptions.Compiled)
+        let regex = Regex(pattern, RegexOptions.Compiled)
 
-        fun (next : HttpFunc) (ctx : HttpContext) ->
-            let result  = regex.Match (SubRouting.getNextPartOfPath ctx)
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            let result = regex.Match(SubRouting.getNextPartOfPath ctx)
+
             match result.Success with
-            | true  ->
+            | true ->
                 let args = result.Groups |> Seq.map (fun x -> x.Value)
                 routeHandler args next ctx
             | false -> skipPipeline ()
@@ -158,12 +160,12 @@ module Routing =
     /// <param name="routeHandler">A function which accepts a tuple 'T of the parsed arguments and returns a <see cref="HttpHandler"/> function which will subsequently deal with the request.</param>
     /// <param name="next">The next handler to invoke.</param>
     /// <param name="ctx">The current <see cref="HttpContext"/>.</param>    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
-    let routeCif (path : PrintfFormat<_,_,_,_, 'T>) (routeHandler : 'T -> HttpHandler) : HttpHandler =
+    let routeCif (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
-        fun (next : HttpFunc) (ctx : HttpContext) ->
+        fun (next: HttpFunc) (ctx: HttpContext) ->
             tryMatchInput path MatchOptions.IgnoreCaseExact (SubRouting.getNextPartOfPath ctx)
             |> function
-                | None      -> skipPipeline ()
+                | None -> skipPipeline ()
                 | Some args -> routeHandler args next ctx
 
     // /// <summary>
@@ -244,9 +246,10 @@ module Routing =
     let routeStartsWithf (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
 
-        let options =
-            { MatchOptions.IgnoreCase = false
-              MatchMode = StartsWith }
+        let options = {
+            MatchOptions.IgnoreCase = false
+            MatchMode = StartsWith
+        }
 
         fun (next: HttpFunc) (ctx: HttpContext) ->
             tryMatchInput path options (SubRouting.getNextPartOfPath ctx)
@@ -274,9 +277,10 @@ module Routing =
     let routeStartsWithCif (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
 
-        let options =
-            { MatchOptions.IgnoreCase = true
-              MatchMode = StartsWith }
+        let options = {
+            MatchOptions.IgnoreCase = true
+            MatchMode = StartsWith
+        }
 
         fun (next: HttpFunc) (ctx: HttpContext) ->
             tryMatchInput path options (SubRouting.getNextPartOfPath ctx)

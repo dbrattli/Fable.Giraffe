@@ -54,7 +54,7 @@ type HeaderDictionary(headers: Dictionary<string, StringValues>) =
         |> ResizeArray
 
 
-type StringSegment (value: string) =
+type StringSegment(value: string) =
     member x.Value = value
 
     override x.ToString() = value
@@ -77,7 +77,7 @@ type MediaTypeHeaderValue(value: string) =
 type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
     member x.Accept
         with get () =
-            let found = headers |> Seq.tryFind (fun x -> x[0].ToLower() = "accept")
+            let found = headers |> Seq.tryFind (fun x -> x[ 0 ].ToLower() = "accept")
 
             match found with
             | Some value -> value |> Seq.map MediaTypeHeaderValue |> ResizeArray
@@ -93,14 +93,13 @@ type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
     member x.GetTypedHeaders() : RequestHeaders =
         RequestHeaders(scope["headers"] :?> ResizeArray<ResizeArray<string>>)
 
-    member x.GetBodyAsync () =
+    member x.GetBodyAsync() =
         task {
             let! response = receive ()
             return response["body"] :?> byte array
         }
 
-    member x.Headers =
-        scope["headers"] :?> Dictionary<string, string> |> HeaderDictionary
+    member x.Headers = scope["headers"] :?> Dictionary<string, string> |> HeaderDictionary
 
 type HttpResponse(send: Request -> Task<unit>) =
     let responseStart =
@@ -143,11 +142,7 @@ type HttpResponse(send: Request -> Task<unit>) =
     member x.SetStatusCode(status: int) = responseStart["status"] <- status
 
     member x.Redirect(location: string, permanent: bool) =
-        let statusCode =
-            if permanent then
-                301
-            else
-                302
+        let statusCode = if permanent then 301 else 302
 
         x.SetStatusCode(statusCode)
         x.SetHttpHeader("Location", location)
@@ -192,9 +187,8 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
 
     member inline x.BindJsonAsync<'T>() =
         task {
-            let! body = x.Request.GetBodyAsync ()
+            let! body = x.Request.GetBodyAsync()
             return body |> Encoding.UTF8.GetString |> Json.parseNativeAs<'T>
         }
 
-    member inline x.GetService<'T>() : 'T =
-        obj () :?> 'T
+    member inline x.GetService<'T>() : 'T = obj () :?> 'T

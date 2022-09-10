@@ -51,16 +51,11 @@ module Helpers =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let removeNamespace (fullName: string) =
-        fullName.Split('.')
-        |> Array.last
-        |> (fun name -> name.Replace("`", "_"))
-
+        fullName.Split('.') |> Array.last |> (fun name -> name.Replace("`", "_"))
 
 // /// <summary>
 // /// Reads a file asynchronously from the file system.
