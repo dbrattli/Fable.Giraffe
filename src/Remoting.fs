@@ -60,7 +60,6 @@ let readArguments (ctx: HttpContext) (argumentTypes: Type array) =
 let inline fromValue (api: 'T)  () =
     let typ = api.GetType()
     let apiName = removeNamespace typ.FullName
-
     let fields = FSharpType.GetRecordFields typ
 
     subRoute $"/{apiName}" (choose [
@@ -73,23 +72,21 @@ let inline fromValue (api: 'T)  () =
             let argumentTypes = fsharpFuncArgs.[0 .. fsharpFuncArgs.Length - 2]
             let asyncOfResult = fsharpFuncArgs.[fsharpFuncArgs.Length - 1]
             let resultType = asyncOfResult.GetGenericArguments()[0]
-
             let method = Signature.Create<_,_,_,_>(value, argCount)
 
             let methodName = dashify "_" field.Name
             dashifyRoute $"/{methodName}" >=> fun _ ctx ->
                 task {
-                    let! arg =
+                    let! args =
                         task {
                             match argumentTypes with
                             | [| PrimitiveType TypeInfo.Unit|]  ->
                                 return [() :> obj]
                             | _ ->
                                 // Read arguments from request body
-                                let! args = readArguments ctx argumentTypes
-                                return args
+                                return! readArguments ctx argumentTypes
                         }
-                    let! output = method.Invoke arg |> Async.StartAsTask
+                    let! output = method.Invoke args |> Async.StartAsTask
                     // printfn "output: %A" output
                     let typeInfo = createTypeInfo resultType
                     let json = Convert.serialize output typeInfo
