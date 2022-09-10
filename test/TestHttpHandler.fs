@@ -1,4 +1,4 @@
-module Giraffe.Tests.HttpHandlerTests
+module Fable.Giraffe.Tests.HttpHandlerTests
 
 open System
 open System.Text

@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module Giraffe.Tests.Helpers
+module Fable.Giraffe.Tests.Helpers
 
 open System
 open System.Collections.Generic
