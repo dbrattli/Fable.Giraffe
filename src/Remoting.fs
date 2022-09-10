@@ -3,6 +3,7 @@
 open System
 open System.Text
 open System.Text.RegularExpressions
+
 open FSharp.Reflection
 open Fable.SimpleJson.Python
 
@@ -22,7 +23,7 @@ let private dashify (separator: string) (input: string) =
                 + m.Value.Substring(1, 1).ToLowerInvariant()
     )
 
-let route (path: string) : HttpHandler =
+let dashifyRoute (path: string) : HttpHandler =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         let segment = SubRouting.getNextPartOfPath ctx |> dashify "_"
         if segment.Equals path then
@@ -30,111 +31,90 @@ let route (path: string) : HttpHandler =
         else
             skipPipeline ()
 
-// let inline json<'T> (dataObj: Async<string>) : HttpHandler =
-//     fun (_: HttpFunc) (ctx: HttpContext) ->
-//         let output = Async.RunSynchronously dataObj
-//         let json = Json.serialize dataObj
-//         let bytes = Encoding.UTF8.GetBytes json
-//         ctx.SetContentType "application/json; charset=utf-8"
-//         ctx.WriteBytesAsync bytes
-
 let removeNamespace (fullName: string) =
     fullName.Split('.')
     |> Array.last
     |> (fun name -> name.Replace("`", "_"))
 
-type Method0<'A, 'B> = 'A -> Async<'B>
+type Arity1<'A, 'B> = 'A -> Async<'B>
+type Arity2<'A, 'B, 'C> = 'A -> 'B -> Async<'C>
+type Arity3<'A, 'B, 'C, 'D> = 'A -> 'B -> 'C-> Async<'D>
+type Arity4<'A, 'B, 'C, 'D, 'E> = 'A -> 'B -> 'C -> 'D -> Async<'E>
 
-// let dynamicallyInvoke (methodName: string) implementation methodArg =
-//      let propInfo = implementation.GetType().GetProperty(methodName)
-//      // A -> Async<B>, extract A and B
-//      let propType = propInfo.PropertyType
-//      let fsharpFuncArgs = propType.GetGenericArguments()
-//      // A
-//      let argumentType = fsharpFuncArgs.[0]
-//      if (argumentType <> methodArg.GetType()) then
-//         let expectedTypeName = argumentType.Name
-//         let providedTypeName = methodArg.GetType().Name
-//         let errorMsg = sprintf "Expected method argument of '%s' but instead got '%s'" expectedTypeName providedTypeName
-//         failwith errorMsg
-//      // Async<B>
-//      let asyncOfB = fsharpFuncArgs.[1]
-//      // B
-//      let typeBFromAsyncOfB = asyncOfB.GetGenericArguments().[0]
-//
-//      let boxer = typedefof<AsyncBoxer<_>>.MakeGenericType(typeBFromAsyncOfB)
-//                  |> Activator.CreateInstance
-//                  :?> IAsyncBoxer
+[<RequireQualifiedAccess>]
+type Signature<'A, 'B, 'C, 'TResult> =
+    | Arity1 of Arity1<'A, 'TResult>
+    | Arity2 of Arity2<'A, 'B, 'TResult>
+    | Arity3 of Arity3<'A, 'B, 'C, 'TResult>
 
+    member x.Invoke(args: List<obj>) =
+        match x with
+        | Arity1 f -> f (args[0] :?> _)
+        | Arity2 f -> f (args[0] :?> _) (args[1] :?> _)
+        | Arity3 f -> f (args[0] :?> _) (args[1] :?> _) (args[2] :?> _)
 
-     // let fsAsync = FSharpRecord.Invoke (methodName, implementation, methodArg)
+    static member Create (value: obj, arity: int) =
+        match arity with
+        | 2 -> value :?> Arity1<_,_> |> Signature.Arity1
+        | 3 -> value :?> Arity2<_,_,_> |> Signature.Arity2
+        | 4 -> value :?> Arity3<_,_,_,_> |> Signature.Arity3
+        | _ -> failwith "Only methods with 1, 2 or 3 arguments are supported"
 
-     // async {
-     //    let! asyncResult = boxer.BoxAsyncResult fsAsync
-     //    return asyncResult
-     // }
+let readArguments (ctx: HttpContext) (argumentTypes: Type array) =
+    task {
+        let! json = ctx.ReadBodyFromRequestAsync()
 
+        let inputJson = SimpleJson.parseNative json
+        match inputJson with
+        | Json.JArray args ->
+            let args =
+                args
+                |> List.mapi (fun i arg ->
+                    let typeInfo = createTypeInfo argumentTypes[i]
+                    Convert.fromJson<_> arg typeInfo)
+            return args
+        | _ -> return failwith "Expected an array of arguments"
+    }
 
 let inline fromValue (api: 'T)  () =
     let typ = api.GetType()
-    let fullname = typ.FullName
-    let apiName = removeNamespace fullname
+    let apiName = removeNamespace typ.FullName
 
     let fields = FSharpType.GetRecordFields typ
-    //printfn "fields: %A" fields
 
     subRoute $"/{apiName}" (choose [
         for field in fields do
-            printfn "field: %A" field
             let value = field.GetValue api
 
             let propType = field.PropertyType
-            printfn "Propertytype: %A" typ
-            // A -> Async<B>, extract A and B
+            let argCount = propType.GetGenericArguments().Length
             let fsharpFuncArgs = propType.GetGenericArguments()
-            // A
-            let argumentType = fsharpFuncArgs.[0]
-            printfn "ArgumentType: %A" argumentType
-            // if (argumentType <> methodArg.GetType()) then
-            //     let expectedTypeName = argumentType.Name
-            //     let providedTypeName = methodArg.GetType().Name
-            //     let errorMsg = sprintf "Expected method argument of '%s' but instead got '%s'" expectedTypeName providedTypeName
-            //     failwith errorMsg
-            // Async<B>
-            let asyncOfB = fsharpFuncArgs.[1]
-            // B
-            let typeBFromAsyncOfB = asyncOfB.GetGenericArguments().[0]
-            printfn "typeBFromAsyncOfB: %A" typeBFromAsyncOfB
+            let argumentTypes = fsharpFuncArgs.[0 .. fsharpFuncArgs.Length - 2]
+            let asyncOfResult = fsharpFuncArgs.[fsharpFuncArgs.Length - 1]
+            let resultType = asyncOfResult.GetGenericArguments()[0]
 
-            let method = (value :?> Method0<_, _>)
-            printfn "value: %A" value
+            let method = Signature.Create<_,_,_,_>(value, argCount)
 
             let fieldName = dashify "_" field.Name
-
-            route $"/{fieldName}" >=> fun _ ctx ->
+            dashifyRoute $"/{fieldName}" >=> fun _ ctx ->
                 task {
-                    // Read arguments from request body
                     let! arg =
                         task {
-                            match argumentType with
-                            | PrimitiveType TypeInfo.Unit ->
-                                return () :> obj
+                            match argumentTypes with
+                            | [| PrimitiveType TypeInfo.Unit|]  ->
+                                return [() :> obj]
                             | _ ->
-                                let! json = ctx.ReadBodyFromRequestAsync()
-                                let inputJson = SimpleJson.parseNative json
-                                let typeInfo = (fun _ -> createTypeInfo argumentType) |> TypeInfo.List
-                                let args = Convert.fromJson<List<_>> inputJson typeInfo
-                                return args.[0] :> obj
+                                // Read arguments from request body
+                                let! args = readArguments ctx argumentTypes
+                                return args
                         }
-                    let! output = method arg |> Async.StartAsTask
-                    printfn "output: %A" output
-                    let typeInfo = createTypeInfo (typeBFromAsyncOfB)
-                    printfn "TypeInfo: %A" typeInfo
-                    let js = Convert.serialize output typeInfo
-                    printfn "js: %A" js
+                    let! output = method.Invoke arg |> Async.StartAsTask
+                    // printfn "output: %A" output
+                    let typeInfo = createTypeInfo resultType
+                    let json = Convert.serialize output typeInfo
 
                     ctx.SetContentType "application/json; charset=utf-8"
-                    let body = Encoding.UTF8.GetBytes js
+                    let body = Encoding.UTF8.GetBytes json
                     return! ctx.WriteBytesAsync body
                 }
     ])
