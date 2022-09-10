@@ -2,26 +2,12 @@
 
 open System
 open System.Text
-open System.Text.RegularExpressions
 
 open FSharp.Reflection
 open Fable.SimpleJson.Python
 
 let createApi() =
     ()
-
-let private dashify (separator: string) (input: string) =
-    Regex.Replace(
-        input,
-        "[a-z]?[A-Z]",
-        fun m ->
-            if m.Value.Length = 1 then
-                m.Value.ToLowerInvariant()
-            else
-                m.Value.Substring(0, 1)
-                + separator
-                + m.Value.Substring(1, 1).ToLowerInvariant()
-    )
 
 let dashifyRoute (path: string) : HttpHandler =
     fun (next: HttpFunc) (ctx: HttpContext) ->
@@ -30,11 +16,6 @@ let dashifyRoute (path: string) : HttpHandler =
             next ctx
         else
             skipPipeline ()
-
-let removeNamespace (fullName: string) =
-    fullName.Split('.')
-    |> Array.last
-    |> (fun name -> name.Replace("`", "_"))
 
 type Arity1<'A, 'B> = 'A -> Async<'B>
 type Arity2<'A, 'B, 'C> = 'A -> 'B -> Async<'C>
