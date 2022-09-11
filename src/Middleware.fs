@@ -12,18 +12,22 @@ module Middleware =
         // pre-compile the handler pipeline
         let func: HttpFunc = handler earlyReturn
 
-        let defaultHandler = setStatusCode 404 |> HttpHandler.text ""
+        let defaultHandler = setStatusCode 404 |> HttpHandler.text "Not found!"
         let defaultFunc: HttpFunc = defaultHandler earlyReturn
 
-        let app (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
-            let ctx = HttpContext(scope, receive, send)
-            let! result = func ctx
+        let app (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
+            task {
+                if scope["type"] = "http" then
+                    let ctx = HttpContext(scope, receive, send)
+                    let! result = func ctx
+                    if result.IsNone then
+                        let! _ = defaultFunc ctx
+                        return ()
+                    else
+                        return ()
+                else
+                    return ()
+            }
 
-            match result with
-            | None ->
-                let! _ = defaultFunc ctx
-                ()
-            | _ -> ()
-        }
-
+        // Make a tupled function so it can be used from Python
         Func<_, _, _, _>(app)

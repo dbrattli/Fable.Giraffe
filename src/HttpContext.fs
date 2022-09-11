@@ -148,7 +148,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         x.SetHttpHeader("Location", location)
 
 type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
-    do printfn "Scope  %A" scope
+    // do printfn "Scope  %A" scope
     let scope = scope
     let send = send
 
