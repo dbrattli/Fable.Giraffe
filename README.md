@@ -1,13 +1,16 @@
 # Fable.Giraffe
 
 [![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)
+[![Nuget](https://img.shields.io/nuget/vpre/Fable.Giraffe)](https://www.nuget.org/packages/Fable.Giraffe/)
+
+Giraffe is high performance, functional ASP.NET Core micro web framework
+for building rich web applications.
 
 Fable.Giraffe is a port of the
 [Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# library to
 [Fable](https://github.com/fable-compiler/Fable/) and
-[Fable.Python](https://github.com/fable-compiler/Fable.Python). Giraffe
-is high performance, functional ASP.NET Core micro web framework for
-building rich web applications.
+[Fable.Python](https://github.com/fable-compiler/Fable.Python). I.e
+Fable.Giraffe is written in F# and runs on Python.
 
 ## Build
 
@@ -39,11 +42,12 @@ directory:
 > dotnet run Run
 ```
 
-If you want to start the server manually, you can run:
+Note that Fable.Giraffe is a valid ASGI application so you can start the server manually using servers like [uvicorn](https://www.uvicorn.org/):
+
+```console
 
 ```console
 > poetry run uvicorn program:app  --port "8080" --workers 20
-
 ```
 
 ## Testing
