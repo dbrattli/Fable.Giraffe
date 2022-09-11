@@ -1,11 +1,12 @@
 ﻿module Fable.Giraffe.Tests.RemotingTests
 
-open System
 open System.Text
 
-open Fable.Giraffe
-open Fable.Python.Tests.Util.Testing
 open Fable.SimpleJson.Python
+
+open Fable.Python.Tests.Util.Testing
+open Fable.Giraffe
+
 
 // ---------------------------------
 // remoting Tests
@@ -42,6 +43,7 @@ let ``test remoting: GET "/IServer/meaningOfLife" returns 42`` () =
         choose [
             Remoting.createApi()
             |> Remoting.fromValue greetingApi
+            |> Remoting.buildHttpHandler
             setStatusCode 404 >=> text "Not found"
         ]
     let expected = "42" |> Encoding.UTF8.GetBytes
@@ -60,6 +62,7 @@ let ``test remoting: GET "/IServer/getNumbers" returns numbers`` () =
         choose [
             Remoting.createApi()
             |> Remoting.fromValue greetingApi
+            |> Remoting.buildHttpHandler
             setStatusCode 404 >=> text "Not found"
         ]
     let expected = "[1, 2, 3, 4, 5]" |> Encoding.UTF8.GetBytes
@@ -77,6 +80,7 @@ let ``test remoting: POST "/greet" returns "Hello World"`` () =
     let app =
         Remoting.createApi()
         |> Remoting.fromValue greetingApi
+        |> Remoting.buildHttpHandler
 
     let expected = "\"Hello, World\"" |> Encoding.UTF8.GetBytes
 
@@ -95,6 +99,7 @@ let ``test remoting: POST "/updateModel" returns updated model`` () =
     let app =
         Remoting.createApi()
         |> Remoting.fromValue greetingApi
+        |> Remoting.buildHttpHandler
 
     let expected = { model with Count = 1 } |> Json.serialize |> Encoding.UTF8.GetBytes
 
@@ -113,6 +118,7 @@ let ``test remoting: POST "/divide" returns float`` () =
     let app =
         Remoting.createApi()
         |> Remoting.fromValue greetingApi
+        |> Remoting.buildHttpHandler
 
     let expected = "2.5" |> Encoding.UTF8.GetBytes
 
