@@ -52,17 +52,16 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A <see cref="HttpFuncResult"/>.</returns>
     let rec private chooseHttpFunc (funcs: HttpFunc list) : HttpFunc =
-        fun (ctx: HttpContext) ->
-            task {
-                match funcs with
-                | [] -> return None
-                | func :: tail ->
-                    let! result = func ctx
+        fun (ctx: HttpContext) -> task {
+            match funcs with
+            | [] -> return None
+            | func :: tail ->
+                let! result = func ctx
 
-                    match result with
-                    | Some c -> return Some c
-                    | None -> return! chooseHttpFunc tail ctx
-            }
+                match result with
+                | Some c -> return Some c
+                | None -> return! chooseHttpFunc tail ctx
+        }
 
     /// <summary>
     /// Iterates through a list of <see cref="HttpHandler"/> functions and returns the result of the first <see cref="HttpHandler"/> of which the outcome is Some HttpContext.
@@ -141,8 +140,7 @@ module Core =
 
             headers.Accept
             |> Seq.map (fun h -> h.ToString())
-            |> Seq.exists (fun h ->
-                mimeTypes |> Seq.contains h)
+            |> Seq.exists (fun h -> mimeTypes |> Seq.contains h)
             |> function
                 | true -> next ctx
                 | false -> skipPipeline ()
@@ -173,11 +171,10 @@ module Core =
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) ->
-            task {
-                let! model = ctx.BindJsonAsync<'T>()
-                return! f model next ctx
-            }
+        fun (next: HttpFunc) (ctx: HttpContext) -> task {
+            let! model = ctx.BindJsonAsync<'T>()
+            return! f model next ctx
+        }
 
     /// <summary>
     /// Writes a byte array to the body of the HTTP response and sets the HTTP Content-Length header accordingly.
@@ -185,19 +182,17 @@ module Core =
     /// <param name="bytes">The byte array to be send back to the client.</param>
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
-    let setBody (bytes : byte array) : HttpHandler =
-        fun (_ : HttpFunc) (ctx : HttpContext) ->
-            ctx.WriteBytesAsync bytes
+    let setBody (bytes: byte array) : HttpHandler =
+        fun (_: HttpFunc) (ctx: HttpContext) -> ctx.WriteBytesAsync bytes
 
     // <summary>
     /// Writes an UTF-8 encoded string to the body of the HTTP response and sets the HTTP Content-Length header accordingly.
     /// </summary>
     /// <param name="str">The string value to be send back to the client.</param>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
-    let setBodyFromString (str : string) : HttpHandler =
+    let setBodyFromString (str: string) : HttpHandler =
         let bytes = Encoding.UTF8.GetBytes str
-        fun (_ : HttpFunc) (ctx : HttpContext) ->
-            ctx.WriteBytesAsync bytes
+        fun (_: HttpFunc) (ctx: HttpContext) -> ctx.WriteBytesAsync bytes
 
     /// <summary>
     /// Writes an UTF-8 encoded string to the body of the HTTP response and sets the HTTP Content-Length header accordingly, as well as the Content-Type header to text/plain.

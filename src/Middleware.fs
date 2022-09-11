@@ -15,16 +15,15 @@ module Middleware =
         let defaultHandler = setStatusCode 404 |> HttpHandler.text ""
         let defaultFunc: HttpFunc = defaultHandler earlyReturn
 
-        let app (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
-            task {
-                let ctx = HttpContext(scope, receive, send)
-                let! result = func ctx
+        let app (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
+            let ctx = HttpContext(scope, receive, send)
+            let! result = func ctx
 
-                match result with
-                | None ->
-                    let! _ = defaultFunc ctx
-                    ()
-                | _ -> ()
-            }
+            match result with
+            | None ->
+                let! _ = defaultFunc ctx
+                ()
+            | _ -> ()
+        }
 
         Func<_, _, _, _>(app)

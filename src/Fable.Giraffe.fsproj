@@ -12,14 +12,15 @@
     <Compile Include="HttpContext.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="Routing.fs" />
+    <Compile Include="Remoting.fs" />
     <Compile Include="Negotiation.fs" />
     <Compile Include="HttpHandler.fs" />
     <Compile Include="Middleware.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Python" Version="0.17.0" />
-    <PackageReference Include="Fable.Core" Version="4.0.0-snake-island-alpha-007" />
-    <PackageReference Include="Fable.SimpleJson.Python" Version="1.5.0" />
+    <PackageReference Include="Fable.Python" Version="0.22.0" />
+    <PackageReference Include="Fable.Core" Version="4.0.0-theta-001" />
+    <PackageReference Include="Fable.SimpleJson.Python" Version="1.6.0" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\pyproject.toml; *.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />

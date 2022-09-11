@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module Giraffe.Tests.Helpers
+module Fable.Giraffe.Tests.Helpers
 
 open System
 open System.Collections.Generic
@@ -38,40 +38,51 @@ let printBytes (bytes : byte[]) =
 let getContentType (response : HttpResponse) =
     response.Headers["Content-Type"][0]
 
+type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, body: ResizeArray<byte array>) =
+    inherit HttpContext(scope, receive, send)
 
-type HttpTester (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary) =
-    let _method = defaultArg method "GET"
-    let _path = defaultArg path "/"
-    let _status = defaultArg status 200
-    let _headers = defaultArg headers (HeaderDictionary()) |> (fun x -> x.Scoped)
-    let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status; "headers", _headers])
-    let _response = Dictionary<string, obj> ()
+    member val buffer : ResizeArray<byte array> = body with get, set
 
-    let send (response: Response) =
-        let inline toMap kvps =
-            kvps
-            |> Seq.map (|KeyValue|)
-            |> Map.ofSeq
+    new (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string) =
 
-        task {
-            let xs = toMap response
-            for KeyValue(key, value) in xs do
-                if key <> "type" then
-                    _response.Add(key, value)
-        }
+        let _method = defaultArg method "GET"
+        let _path = defaultArg path "/"
+        let _status = defaultArg status 200
+        let _headers = defaultArg headers (HeaderDictionary()) |> (fun x -> x.Scoped)
+        let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status; "headers", _headers])
+        let _response = Dictionary<string, obj> ()
+        let _body = ResizeArray<byte array>()
 
-    let receive () =
-        task {
-            return Dictionary<string, obj> ()
-        }
+        let send (response: Response) =
+            let inline toMap kvps =
+                kvps
+                |> Seq.map (|KeyValue|)
+                |> Map.ofSeq
 
-    let ctx = HttpContext(_scope, receive, send)
+            task {
+                let xs = toMap response
+                for KeyValue(key, value) in xs do
+                    if key <> "type" then
+                        _response.Add(key, value)
 
-    member this.Context = ctx
-    member this.Body = _response["body"] :?> byte []
-    member this.Text =
-        let body = _response["body"] :?> byte array
-        Encoding.UTF8.GetString(body)
+                    if key = "body" then
+                        match value with
+                        //| :? (byte array) as bytes -> // TODO: wait for upstream Fable fix
+                        | bytes ->
+                            _body.Add (bytes :?> byte array)
+                        | _ -> failwith "Body must be a byte array"
+            }
 
-    member this.StatusCode = _response["status"] :?> int
-    //member this.Location = _response["location"] :?> string
+        let receive () =
+            task {
+                let bytes = body |> Option.defaultValue "" |> Encoding.UTF8.GetBytes
+                return Dictionary<string, obj> (dict ["body", bytes :> obj])
+            }
+
+        HttpTestContext(_scope, receive, send, _body)
+
+
+    member this.Body
+        with get () = this.buffer[0]
+    member this.BodyAsText
+        with get () = Encoding.UTF8.GetString(this.Body)

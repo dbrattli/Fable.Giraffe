@@ -3,13 +3,13 @@
   "isRoot": true,
   "tools": {
     "fable": {
-      "version": "4.0.0-snake-island-alpha-026",
+      "version": "4.0.0-theta-002",
       "commands": [
         "fable"
       ]
     },
     "fantomas": {
-      "version": "5.0.0-beta-009",
+      "version": "5.0.0-beta-010",
       "commands": [
         "fantomas"
       ]

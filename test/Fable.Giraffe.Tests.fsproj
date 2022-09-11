@@ -12,6 +12,7 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="TestHttpHandler.fs" />
     <Compile Include="TestRouting.fs" />
+    <Compile Include="TestRemoting.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
