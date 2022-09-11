@@ -2,6 +2,7 @@ namespace Fable.Giraffe
 
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 type StringValues(strings: string[]) =
     new(str: string) = StringValues [| str |]
@@ -27,9 +28,6 @@ type StringValues(strings: string[]) =
 
 [<AutoOpen>]
 module Helpers =
-    open System
-    open System.IO
-
     /// <summary>
     /// Checks if an object is not null.
     /// </summary>
@@ -45,11 +43,25 @@ module Helpers =
     let inline strOption (str: string) =
         if String.IsNullOrEmpty str then None else Some str
 
-/// <summary>
-/// Reads a file asynchronously from the file system.
-/// </summary>
-/// <param name="filePath">The absolute path of the file.</param>
-/// <returns>Returns the string contents of the file wrapped in a Task.</returns>
+    let dashify (separator: string) (input: string) =
+        Regex.Replace(
+            input,
+            "[a-z]?[A-Z]",
+            fun m ->
+                if m.Value.Length = 1 then
+                    m.Value.ToLowerInvariant()
+                else
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
+        )
+
+    let removeNamespace (fullName: string) =
+        fullName.Split('.') |> Array.last |> (fun name -> name.Replace("`", "_"))
+
+// /// <summary>
+// /// Reads a file asynchronously from the file system.
+// /// </summary>
+// /// <param name="filePath">The absolute path of the file.</param>
+// /// <returns>Returns the string contents of the file wrapped in a Task.</returns>
 // let readFileAsStringAsync (filePath : string) =
 //     task {
 //         use reader = new StreamReader(filePath)

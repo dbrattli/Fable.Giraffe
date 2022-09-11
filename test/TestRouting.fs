@@ -1,4 +1,4 @@
-module Giraffe.Tests.RoutingTests
+module Fable.Giraffe.Tests.RoutingTests
 
 open System
 open System.Text
