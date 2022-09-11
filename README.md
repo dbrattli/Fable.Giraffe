@@ -38,11 +38,14 @@ directory:
 
 ## Running
 
+To run the test server:
+
 ```console
-> dotnet run Run
+> dotnet run App
 ```
 
-Note that Fable.Giraffe is a valid ASGI application so you can start the server manually using servers like [uvicorn](https://www.uvicorn.org/):
+Note that Fable.Giraffe is a valid ASGI application so you can start the
+server manually using servers like [uvicorn](https://www.uvicorn.org/):
 
 ```console
 
