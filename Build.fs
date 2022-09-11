@@ -23,7 +23,7 @@ Target.create "Build" (fun _ ->
     run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}/lib" srcPath
 )
 
-Target.create "Run" (fun _ ->
+Target.create "App" (fun _ ->
     Shell.mkdir buildPath
     run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}/app" appPath
     run poetry $"""run uvicorn program:app  --port "8080" --workers 5""" $"{buildPath}/app"
@@ -54,7 +54,7 @@ let dependencies = [
         ==> "Build"
 
     "Clean"
-        ==> "Run"
+        ==> "App"
 
     "Build"
         ==> "Test"
