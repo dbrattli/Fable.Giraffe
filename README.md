@@ -48,8 +48,6 @@ Note that Fable.Giraffe is a valid ASGI application so you can start the
 server manually using servers like [uvicorn](https://www.uvicorn.org/):
 
 ```console
-
-```console
 > poetry run uvicorn program:app  --port "8080" --workers 20
 ```
 
