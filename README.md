@@ -3,7 +3,7 @@
 [![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)
 [![Nuget](https://img.shields.io/nuget/vpre/Fable.Giraffe)](https://www.nuget.org/packages/Fable.Giraffe/)
 
-Giraffe is high performance, functional ASP.NET Core micro web framework
+Giraffe is a high performance, functional ASP.NET Core micro web framework
 for building rich web applications.
 
 Fable.Giraffe is a port of the
