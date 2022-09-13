@@ -17,6 +17,7 @@
     <Compile Include="Remoting.fs" />
     <Compile Include="Negotiation.fs" />
     <Compile Include="HttpHandler.fs" />
+    <Compile Include="HttpStatusCodeHandlers.fs" />
     <Compile Include="Middleware.fs" />
   </ItemGroup>
   <ItemGroup>

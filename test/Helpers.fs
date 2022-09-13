@@ -67,9 +67,7 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
 
                     if key = "body" then
                         match value with
-                        //| :? (byte array) as bytes -> // TODO: wait for upstream Fable fix
-                        | bytes ->
-                            _body.Add (bytes :?> byte array)
+                        | :? (byte array) as bytes -> _body.Add bytes
                         | _ -> failwith "Body must be a byte array"
             }
 

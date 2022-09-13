@@ -64,7 +64,7 @@ type StringSegment(value: string) =
 [<AllowNullLiteral>]
 type MediaTypeHeaderValue(value: string) =
     let parts = value.Split(';')
-    let mediaType = parts.[0].Trim()
+    let mediaType = parts[0].Trim()
     let charset = parts |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
     let charset = charset |> Option.map (fun c -> c.Split('=').[1].Trim())
 
@@ -123,9 +123,13 @@ type HttpResponse(send: Request -> Task<unit>) =
 
         and set (value: int) = responseStart["status"] <- value
 
+    member x.Clear () =
+        responseStart["status"] <- 200
+        responseStart["headers"] <- ResizeArray<_>()
+        responseBody["body"] <- [||]
+
     member x.WriteAsync(bytes: byte[]) =
         task {
-            // printfn "HttpResponse.WriteAsync()"
             responseBody["body"] <- bytes
 
             if not x.HasStarted then

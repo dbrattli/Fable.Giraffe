@@ -29,5 +29,5 @@ module Middleware =
                     return ()
             }
 
-        // Make a tupled function so it can be used from Python
+        // Return a tupled function so it may be used from Python
         Func<_, _, _, _>(app)
