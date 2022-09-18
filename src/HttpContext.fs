@@ -36,7 +36,11 @@ module HttpMethods =
 
 type HeaderDictionary(headers: Dictionary<string, StringValues>) =
     new(headers: Dictionary<string, string>) =
-        let dict = headers |> Seq.map (fun (KeyValue (k, v)) -> (k, StringValues v)) |> dict
+        let dict =
+            headers
+            |> Seq.map (fun (KeyValue (k, v)) -> (k, StringValues v))
+            |> dict
+
         HeaderDictionary(Dictionary(dict))
 
     new() = HeaderDictionary(Dictionary<string, StringValues>())
@@ -64,9 +68,15 @@ type StringSegment(value: string) =
 [<AllowNullLiteral>]
 type MediaTypeHeaderValue(value: string) =
     let parts = value.Split(';')
-    let mediaType = parts[0].Trim()
-    let charset = parts |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
-    let charset = charset |> Option.map (fun c -> c.Split('=').[1].Trim())
+    let mediaType = parts[ 0 ].Trim()
+
+    let charset =
+        parts
+        |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
+
+    let charset =
+        charset
+        |> Option.map (fun c -> c.Split('=').[1].Trim())
 
     member x.MediaType = StringSegment(mediaType)
     member x.Quality = Nullable 1.0
@@ -77,10 +87,15 @@ type MediaTypeHeaderValue(value: string) =
 type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
     member x.Accept
         with get () =
-            let found = headers |> Seq.tryFind (fun x -> x[ 0 ].ToLower() = "accept")
+            let found =
+                headers
+                |> Seq.tryFind (fun x -> x[ 0 ].ToLower() = "accept")
 
             match found with
-            | Some value -> value |> Seq.map MediaTypeHeaderValue |> ResizeArray
+            | Some value ->
+                value
+                |> Seq.map MediaTypeHeaderValue
+                |> ResizeArray
             | _ -> ResizeArray<MediaTypeHeaderValue>()
 
         and set (value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
@@ -90,31 +105,36 @@ type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
 
     member x.Method: string = scope["method"] :?> string
 
+    member x.Protocol: string = scope["type"] :?> string
+
     member x.GetTypedHeaders() : RequestHeaders =
         RequestHeaders(scope["headers"] :?> ResizeArray<ResizeArray<string>>)
 
-    member x.GetBodyAsync() =
-        task {
-            let! response = receive ()
-            return response["body"] :?> byte array
-        }
+    member x.GetBodyAsync() = task {
+        let! response = receive ()
+        return response["body"] :?> byte array
+    }
 
-    member x.Headers = scope["headers"] :?> Dictionary<string, string> |> HeaderDictionary
+    member x.Headers =
+        scope["headers"] :?> Dictionary<string, string>
+        |> HeaderDictionary
 
 type HttpResponse(send: Request -> Task<unit>) =
     let responseStart =
         Dictionary<string, obj>(
-            dict
-                [ ("type", "http.response.start" :> obj)
-                  ("status", 200)
-                  ("headers", ResizeArray<_>()) ]
+            dict [
+                ("type", "http.response.start" :> obj)
+                ("status", 200)
+                ("headers", ResizeArray<_>())
+            ]
         )
 
     let responseBody =
         Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
 
     member x.Headers =
-        responseStart["headers"] :?> Dictionary<string, string> |> HeaderDictionary
+        responseStart["headers"] :?> Dictionary<string, string>
+        |> HeaderDictionary
 
     member val HasStarted: bool = false with get, set
 
@@ -123,21 +143,20 @@ type HttpResponse(send: Request -> Task<unit>) =
 
         and set (value: int) = responseStart["status"] <- value
 
-    member x.Clear () =
+    member x.Clear() =
         responseStart["status"] <- 200
         responseStart["headers"] <- ResizeArray<_>()
         responseBody["body"] <- [||]
 
-    member x.WriteAsync(bytes: byte[]) =
-        task {
-            responseBody["body"] <- bytes
+    member x.WriteAsync(bytes: byte[]) = task {
+        responseBody["body"] <- bytes
 
-            if not x.HasStarted then
-                do! send responseStart
-                x.HasStarted <- true
+        if not x.HasStarted then
+            do! send responseStart
+            x.HasStarted <- true
 
-            do! send responseBody
-        }
+        do! send responseBody
+    }
 
     member x.SetHttpHeader(key: string, value: obj) =
         let headers = responseStart["headers"] :?> ResizeArray<string * obj>
@@ -151,7 +170,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         x.SetStatusCode(statusCode)
         x.SetHttpHeader("Location", location)
 
-type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
+type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, services: ServiceCollection) =
     // do printfn "Scope  %A" scope
     let scope = scope
     let send = send
@@ -165,16 +184,16 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member _.Request = request
     member _.Response = response
 
-    member ctx.WriteBytesAsync(bytes: byte[]) =
-        // printfn "WriteBytesAsync"
-        task {
-            ctx.SetHttpHeader(HeaderNames.ContentLength, bytes.Length)
+    member _.RequestServices = services
 
-            if ctx.Request.Method <> HttpMethods.Head then
-                do! ctx.Response.WriteAsync(bytes)
+    member ctx.WriteBytesAsync(bytes: byte[]) = task {
+        ctx.SetHttpHeader(HeaderNames.ContentLength, bytes.Length)
 
-            return Some ctx
-        }
+        if ctx.Request.Method <> HttpMethods.Head then
+            do! ctx.Response.WriteAsync(bytes)
+
+        return Some ctx
+    }
 
     member ctx.SetStatusCode(statusCode: int) = ctx.Response.SetStatusCode(statusCode)
 
@@ -183,16 +202,20 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member ctx.SetContentType(contentType: string) =
         ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
 
-    member ctx.ReadBodyFromRequestAsync() : Task<string> =
-        task {
-            let! bytes = ctx.Request.GetBodyAsync()
-            return bytes |> Encoding.UTF8.GetString
-        }
+    member ctx.ReadBodyFromRequestAsync() : Task<string> = task {
+        let! bytes = ctx.Request.GetBodyAsync()
+        return bytes |> Encoding.UTF8.GetString
+    }
 
-    member inline x.BindJsonAsync<'T>() =
-        task {
-            let! body = x.Request.GetBodyAsync()
-            return body |> Encoding.UTF8.GetString |> Json.parseNativeAs<'T>
-        }
+    member inline x.BindJsonAsync<'T>() = task {
+        let! body = x.Request.GetBodyAsync()
 
-    member inline x.GetService<'T>() : 'T = obj () :?> 'T
+        return
+            body
+            |> Encoding.UTF8.GetString
+            |> Json.parseNativeAs<'T>
+    }
+
+    member inline x.GetService<'T>() : 'T =
+        let service = x.RequestServices.GetService(typeof<'T>)
+        service :?> 'T

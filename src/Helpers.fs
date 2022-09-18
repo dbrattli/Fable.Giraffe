@@ -24,6 +24,23 @@ type StringValues(strings: string[]) =
 
     static member Empty = StringValues [||]
 
+/// A simplified service colletion for now
+type ServiceCollection() =
+    let singletons = Dictionary<Type, obj>()
+
+    member val Services = singletons with get, set
+
+    member inline x.AddSingleton<'T when 'T: not struct>(service: 'T) = x.Services[typeof<'T>] <- service
+
+    member inline x.GetService<'TService>() =
+        match x.Services.TryGetValue(typeof<'TService>) with
+        | true, service -> service :?> 'TService
+        | _ -> failwithf $"Service %A{typeof<'TService>} not found"
+
+    member x.GetService(serviceType: Type) =
+        match x.Services.TryGetValue(serviceType) with
+        | true, service -> service
+        | _ -> failwithf $"Service %A{serviceType} not found"
 
 
 [<AutoOpen>]
@@ -51,11 +68,15 @@ module Helpers =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1)
+                    + separator
+                    + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let removeNamespace (fullName: string) =
-        fullName.Split('.') |> Array.last |> (fun name -> name.Replace("`", "_"))
+        fullName.Split('.')
+        |> Array.last
+        |> (fun name -> name.Replace("`", "_"))
 
 // /// <summary>
 // /// Reads a file asynchronously from the file system.

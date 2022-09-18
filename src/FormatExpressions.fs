@@ -115,7 +115,10 @@ let tryMatchInput (format: PrintfFormat<_, _, _, _, 'T>) (options: MatchOptions)
         if result.Groups.Count <= 1 then
             None
         else
-            let groups = result.Groups |> Seq.cast<Group> |> Seq.skip 1
+            let groups =
+                result.Groups
+                |> Seq.cast<Group>
+                |> Seq.skip 1
 
             let values =
                 (groups, formatChars)
@@ -129,7 +132,10 @@ let tryMatchInput (format: PrintfFormat<_, _, _, _, 'T>) (options: MatchOptions)
                 match values.Length with
                 | 1 -> values.[0]
                 | _ ->
-                    let types = values |> Array.map (fun v -> v.GetType())
+                    let types =
+                        values
+                        |> Array.map (fun v -> v.GetType())
+
                     let tupleType = FSharpType.MakeTupleType types
                     FSharpValue.MakeTuple(values, tupleType)
 
@@ -151,28 +157,3 @@ let tryMatchInputExact (format: PrintfFormat<_, _, _, _, 'T>) (ignoreCase: bool)
         | false -> MatchOptions.Exact
 
     tryMatchInput format options input
-
-
-// ---------------------------
-// Validation helper functions
-// ---------------------------
-
-/// **Description**
-///
-/// Validates if a given format string can be matched with a given tuple.
-///
-/// **Parameters**
-///
-/// `format`: The format string which shall be used for parsing.
-///
-/// **Output**
-///
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.
-/// Returns `unit` if validation was successful otherwise will throw an `Exception`.

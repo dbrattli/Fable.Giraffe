@@ -10,7 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Python" Version="0.22.0" />
-    <PackageReference Include="Fable.Core" Version="4.0.0-theta-001" />
+    <PackageReference Include="Fable.Core" Version="4.0.0-theta-*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\Fable.Giraffe.fsproj" />
