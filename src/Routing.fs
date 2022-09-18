@@ -12,7 +12,9 @@ module SubRouting =
 
     let getSavedPartialPath (ctx: HttpContext) =
         if ctx.Items.ContainsKey RouteKey then
-            ctx.Items.Item RouteKey |> string |> strOption
+            ctx.Items.Item RouteKey
+            |> string
+            |> strOption
         else
             None
 
@@ -24,7 +26,12 @@ module SubRouting =
     let routeWithPartialPath (path: string) (handler: HttpHandler) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) -> task {
             let savedPartialPath = getSavedPartialPath ctx
-            ctx.Items[ RouteKey ] <- ((savedPartialPath |> Option.defaultValue "") + path)
+
+            ctx.Items[ RouteKey ] <-
+                ((savedPartialPath
+                  |> Option.defaultValue "")
+                 + path)
+
             let! result = handler next ctx
 
             match result with
@@ -67,7 +74,13 @@ module Routing =
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routeCix (path: string) : HttpHandler =
         let pattern = sprintf "^%s$" path
-        let regex = Regex(pattern, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
+
+        let regex =
+            Regex(
+                pattern,
+                RegexOptions.IgnoreCase
+                ||| RegexOptions.Compiled
+            )
 
         fun (next: HttpFunc) (ctx: HttpContext) ->
             let result = regex.Match(SubRouting.getNextPartOfPath ctx)
@@ -111,7 +124,10 @@ module Routing =
 
             match result.Success with
             | true ->
-                let args = result.Groups |> Seq.map (fun x -> x.Value)
+                let args =
+                    result.Groups
+                    |> Seq.map (fun x -> x.Value)
+
                 routeHandler args next ctx
             | false -> skipPipeline ()
 
@@ -296,7 +312,8 @@ module Routing =
     /// <param name="handler">A Giraffe <see cref="HttpHandler"/> function.</param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let subRoute (path: string) (handler: HttpHandler) : HttpHandler =
-        routeStartsWith path >=> SubRouting.routeWithPartialPath path handler
+        routeStartsWith path
+        >=> SubRouting.routeWithPartialPath path handler
 
     /// <summary>
     /// Filters an incoming HTTP request based on a part of the request path (case insensitive).

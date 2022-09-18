@@ -108,8 +108,8 @@ module Core =
     /// <param name="next"></param>
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
-    let clearResponse : HttpHandler =
-        fun (next : HttpFunc) (ctx : HttpContext) ->
+    let clearResponse: HttpHandler =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
             ctx.Response.Clear()
             next ctx
 

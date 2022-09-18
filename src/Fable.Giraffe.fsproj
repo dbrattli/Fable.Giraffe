@@ -21,12 +21,13 @@
     <Compile Include="Middleware.fs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\"/>
+    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fable.Logging" Version="0.3.0" />
     <PackageReference Include="Fable.Python" Version="0.22.0" />
-    <PackageReference Include="Fable.Core" Version="4.0.0-theta-001" />
+    <PackageReference Include="Fable.Core" Version="4.0.0-theta-*" />
     <PackageReference Include="Fable.SimpleJson.Python" Version="1.6.0" />
   </ItemGroup>
   <ItemGroup>

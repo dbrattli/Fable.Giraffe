@@ -8,6 +8,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.9"
+structlog = "^22.1.0"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^22.8.0", allow-prereleases = true}

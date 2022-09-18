@@ -34,7 +34,10 @@ type Signature<'A, 'B, 'C, 'TResult> =
 module RemotongHelpers =
     let dashifyRoute (path: string) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
-            let segment = SubRouting.getNextPartOfPath ctx |> dashify "_"
+            let segment =
+                SubRouting.getNextPartOfPath ctx
+                |> dashify "_"
+
             if segment.Equals path then next ctx else skipPipeline ()
 
     let readArgumentsFromBodyAsync (ctx: HttpContext) (argumentTypes: Type array) = task {
@@ -60,13 +63,20 @@ module RemotongHelpers =
         let isAsyncType (t: Type) =
             t.GetGenericTypeDefinition() = typedefof<Async<_>>
 
-        if not ((isFunctionType funcType) || (isAsyncType funcType)) then
+        if
+            not (
+                (isFunctionType funcType)
+                || (isAsyncType funcType)
+            )
+        then
             failwithf $"Bad API record field %s{param.Name}, must be of type Async<'a> or a function returning Async<'a>"
 
         // Uncurry the function argments
         let rec uncurry (t: Type) =
             match t with
-            | _ when isFunctionType t -> t.GetGenericArguments() |> Array.collect uncurry
+            | _ when isFunctionType t ->
+                t.GetGenericArguments()
+                |> Array.collect uncurry
             | _ when isAsyncType t -> [| t.GetGenericArguments()[0] |]
             | _ -> [| t |]
 
@@ -102,7 +112,10 @@ module RemotongHelpers =
                             }
 
                             let! output = method.Invoke args |> Async.StartAsTask
-                            let json = createTypeInfo resultType |> Convert.serialize output
+
+                            let json =
+                                createTypeInfo resultType
+                                |> Convert.serialize output
 
                             ctx.SetContentType "application/json; charset=utf-8"
                             let body = Encoding.UTF8.GetBytes json

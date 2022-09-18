@@ -34,7 +34,7 @@ type INegotiationConfig =
 let private unacceptableHandler =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         (setStatusCode 406
-         >=> (ctx.Request.Headers["Accept"].ToString()
+         >=> (ctx.Request.Headers[ "Accept" ].ToString()
               |> sprintf "%s is unacceptable by the server."
               |> text))
             next
@@ -108,7 +108,10 @@ type NegotiationExtensions() =
         ) =
         let acceptedMimeTypes = ctx.Request.GetTypedHeaders().Accept
 
-        if isNull acceptedMimeTypes || acceptedMimeTypes.Count = 0 then
+        if
+            isNull acceptedMimeTypes
+            || acceptedMimeTypes.Count = 0
+        then
             let kv = negotiationRules |> Seq.head
             kv.Value responseObj earlyReturn ctx
         else
@@ -128,7 +131,7 @@ type NegotiationExtensions() =
             if isNull mimeType then
                 unacceptableHandler earlyReturn ctx
             else
-                negotiationRules[mimeType.MediaType.Value] responseObj earlyReturn ctx
+                negotiationRules[ mimeType.MediaType.Value ] responseObj earlyReturn ctx
 
     /// <summary>
     /// Sends a response back to the client based on the request's Accept header.
