@@ -10,8 +10,7 @@ type Model = { Name: string; Age: int }
 let method (source: HttpHandler) =
     fun next (ctx: HttpContext) -> task {
         let log = ctx.GetService<ILogger>()
-        printfn "Logging request: %A" log
-        log.LogInformation("Hello from Fable.Giraffe!")
+        log.LogDebug("Hello from Fable.Giraffe!")
 
         return! next ctx
     }
