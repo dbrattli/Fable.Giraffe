@@ -9,6 +9,7 @@ open Fable.Logging
 [<AttachMembers>]
 type GiraffeMiddleware(handler: HttpHandler, loggerFactory: ILoggerFactory) =
     let logger = loggerFactory.CreateLogger("GiraffeMiddleware")
+    let freq = double Diagnostics.Stopwatch.Frequency
 
     // pre-compile the handler pipeline
     let func: HttpFunc =
@@ -20,15 +21,14 @@ type GiraffeMiddleware(handler: HttpHandler, loggerFactory: ILoggerFactory) =
             ]
             earlyReturn
 
+
     member x.Invoke(ctx: HttpContext) = task {
         if ctx.Request.Protocol = "http" then
             let start = Diagnostics.Stopwatch.GetTimestamp()
 
-            let! result = func ctx
+            let! _ = func ctx
 
-            if logger.IsEnabled LogLevel.Debug then
-                let freq = double System.Diagnostics.Stopwatch.Frequency
-
+            if logger.IsEnabled LogLevel.Debug then                
                 let stop = Diagnostics.Stopwatch.GetTimestamp()
 
                 let elapsedMs = (double (stop - start)) * 1000.0 / freq
