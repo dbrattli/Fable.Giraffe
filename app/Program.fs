@@ -30,11 +30,9 @@ let webApp =
         |> HttpHandler.text "logged"
     ]
 
-let provider = new Structlog.ConsoleLoggerProvider()
-
 let app =
     WebHostBuilder()
         .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
         .UseStructlog()
-        .Configure(Action<IApplicationBuilder>(fun app -> app.UseGiraffe(webApp)))
+        .Configure(fun app -> app.UseGiraffe(webApp))
         .Build()

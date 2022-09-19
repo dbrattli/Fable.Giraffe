@@ -12,6 +12,20 @@ Fable.Giraffe is a port of the
 [Fable.Python](https://github.com/fable-compiler/Fable.Python). I.e
 Fable.Giraffe is written in F# and runs on Python.
 
+## Example
+
+```fsharp
+let webApp =
+    route "/ping" |> HttpHandler.text "pong"
+
+let app =
+    WebHostBuilder()
+        .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
+        .UseStructlog()
+        .Configure(fun app -> app.UseGiraffe(webApp))
+        .Build()
+```
+
 ## Build
 
 To build Fable.Giraffe, run:
