@@ -24,17 +24,25 @@ type StringValues(strings: string[]) =
 
     static member Empty = StringValues [||]
 
+type ServiceDescriptor = Singleton of obj
+
+type IServiceCollection =
+    inherit ICollection<ServiceDescriptor>
+    abstract AddSingleton: serviceType: Type * implementationInstance: obj -> IServiceCollection
+
+
 /// A simplified service colletion for now
 type ServiceCollection() =
-    let singletons = Dictionary<Type, obj>()
+    let singletons = Dictionary<Type, ServiceDescriptor>()
 
     member val Services = singletons with get, set
 
-    member inline x.AddSingleton<'T when 'T: not struct>(service: 'T) = x.Services[typeof<'T>] <- service
+    member inline x.AddSingleton<'T when 'T: not struct>(serviceType: 'T) =
+        x.Services[ typeof<'T> ] <- Singleton serviceType
 
     member inline x.GetService<'TService>() =
         match x.Services.TryGetValue(typeof<'TService>) with
-        | true, service -> service :?> 'TService
+        | true, (Singleton service) -> service :?> 'TService
         | _ -> failwithf $"Service %A{typeof<'TService>} not found"
 
     member x.GetService(serviceType: Type) =

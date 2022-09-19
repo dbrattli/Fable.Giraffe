@@ -217,5 +217,5 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     }
 
     member inline x.GetService<'T>() : 'T =
-        let service = x.RequestServices.GetService(typeof<'T>)
+        let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
         service :?> 'T
