@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -18,8 +18,8 @@
     <Compile Include="Negotiation.fs" />
     <Compile Include="HttpHandler.fs" />
     <Compile Include="HttpStatusCodeHandlers.fs" />
-    <Compile Include="Middleware.fs" />
     <Compile Include="WebHost.fs" />
+    <Compile Include="Middleware.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
