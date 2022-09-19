@@ -1,5 +1,7 @@
 module Program
 
+open System
+
 open Fable.Giraffe
 open Fable.Giraffe.Pipelines
 
@@ -28,7 +30,11 @@ let webApp =
         |> HttpHandler.text "logged"
     ]
 
-let provider = new Structlog.ConsoleLoggerProvider() :> ILoggerProvider
+let provider = new Structlog.ConsoleLoggerProvider()
 
-GiraffeMiddleware.useLogger provider
-let app = GiraffeMiddleware.useGiraffe webApp
+let app =
+    WebHostBuilder()
+        .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
+        .UseStructlog()
+        .Configure(Action<IApplicationBuilder>(fun app -> app.UseGiraffe(webApp)))
+        .Build()

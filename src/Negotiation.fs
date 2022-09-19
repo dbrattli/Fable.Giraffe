@@ -131,7 +131,7 @@ type NegotiationExtensions() =
             if isNull mimeType then
                 unacceptableHandler earlyReturn ctx
             else
-                negotiationRules[ mimeType.MediaType.Value ] responseObj earlyReturn ctx
+                negotiationRules.[ mimeType.MediaType.Value ] responseObj earlyReturn ctx
 
     /// <summary>
     /// Sends a response back to the client based on the request's Accept header.
