@@ -29,9 +29,11 @@ type WebHostBuilder() =
 
     let asgiApp =
         Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(fun scope receive send ->
-            let ctx = HttpContext(scope, receive, send, services)
+            task {
+                let ctx = HttpContext(scope, receive, send, services)
 
-            pipelines.[0].Invoke(ctx))
+                return! pipelines.[0].Invoke(ctx)
+            })
 
     interface IWebHostBuilder with
         member this.Configure(configureApp: Action<IApplicationBuilder>) =
