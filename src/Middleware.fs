@@ -43,7 +43,7 @@ type GiraffeMiddleware(handler: HttpHandler, loggerFactory: ILoggerFactory) =
                     logLevel,
                     "Giraffe returned {Status} for {HttpProtocol} {HttpMethod} at {Path} in {ElapsedMs}",
                     parameters = [|
-                        ctx.Response.StatusCode
+                        ctx.Response.StatusCode :> obj
                         ctx.Request.Protocol
                         ctx.Request.Method
                         ctx.Request.Path.ToString()

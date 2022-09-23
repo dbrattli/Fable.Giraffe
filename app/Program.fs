@@ -28,6 +28,8 @@ let webApp =
         route "/log"
         |> method
         |> HttpHandler.text "logged"
+
+        text "Hello World!"
     ]
 
 let app =

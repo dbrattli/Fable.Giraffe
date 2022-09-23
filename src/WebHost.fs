@@ -79,8 +79,14 @@ module Host =
 module Extensions =
     type IWebHostBuilder with
 
-        member this.UseStructlog() =
-            this.ConfigureLogging(fun builder -> builder.AddProvider(new Structlog.ConsoleLoggerProvider()))
+        member this.UseStructlog(?json: bool) =
+            let provider =
+                if json.IsSome then
+                    new Structlog.JsonLoggerProvider() :> ILoggerProvider
+                else
+                    new Structlog.ConsoleLoggerProvider()
+
+            this.ConfigureLogging(fun builder -> builder.AddProvider(provider))
             |> ignore
 
             this
