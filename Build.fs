@@ -25,8 +25,8 @@ Target.create "Build" (fun _ ->
 
 Target.create "App" (fun _ ->
     Shell.mkdir buildPath
-    run dotnet $"fable --exclude Fable.Core --lang Python --outDir {buildPath}/app" appPath
-    run poetry $"""run uvicorn program:app  --port "8080" --workers 1 --log-level error""" $"{buildPath}/app"
+    run dotnet $"fable --exclude Fable.Core --lang Python" appPath
+    run poetry $"""run uvicorn program:app  --port "8080" --workers 1 --log-level error""" $"{appPath}"
 )
 
 Target.create "Test" (fun _ ->

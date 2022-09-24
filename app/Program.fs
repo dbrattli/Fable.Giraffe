@@ -1,7 +1,5 @@
 module Program
 
-open System
-
 open Fable.Giraffe
 open Fable.Giraffe.Pipelines
 
@@ -29,12 +27,11 @@ let webApp =
         |> loggingHandler
     ]
 
-let staticFiles = obj () :?> ASGIApp
-
 let app =
     WebHostBuilder()
         .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
         .UseStructlog()
         .Configure(fun app ->
+            app.UseStaticFiles("public")
             app.UseGiraffe(webApp))
         .Build()

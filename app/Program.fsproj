@@ -6,6 +6,7 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="public/index.html" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

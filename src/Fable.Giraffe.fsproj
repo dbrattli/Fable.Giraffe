@@ -20,6 +20,7 @@
     <Compile Include="HttpStatusCodeHandlers.fs" />
     <Compile Include="WebHost.fs" />
     <Compile Include="Middleware.fs" />
+    <Compile Include="StaticFiles.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />

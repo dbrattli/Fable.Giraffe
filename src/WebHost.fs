@@ -65,7 +65,7 @@ type WebHostBuilder() =
         member this.Build() : ASGIApp =
             let mutable app: ASGIApp = defaultApp
 
-            for pipeline in pipelines do
+            for pipeline in pipelines |> Seq.rev do
                 app <- pipeline.Invoke(app, loggerFactory)
 
             Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(fun scope receive send -> task {
