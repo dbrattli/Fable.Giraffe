@@ -12,6 +12,9 @@ type Scope = Dictionary<string, obj>
 type Request = Dictionary<string, obj>
 type Response = Dictionary<string, obj>
 
+/// https://asgi.readthedocs.io/
+type ASGIApp = Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>
+
 
 module HeaderNames =
     [<Literal>]
@@ -98,7 +101,7 @@ type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
                 |> ResizeArray
             | _ -> ResizeArray<MediaTypeHeaderValue>()
 
-        and set (value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
+        and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
 
 type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
     member x.Path: string option = scope["path"] :?> string |> Some
@@ -120,14 +123,10 @@ type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
         |> HeaderDictionary
 
 type HttpResponse(send: Request -> Task<unit>) =
+    let mutable statusCode = None
+
     let responseStart =
-        Dictionary<string, obj>(
-            dict [
-                ("type", "http.response.start" :> obj)
-                ("status", 200)
-                ("headers", ResizeArray<_>())
-            ]
-        )
+        Dictionary<string, obj>(dict [ ("type", "http.response.start" :> obj); ("headers", ResizeArray<_>()) ])
 
     let responseBody =
         Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
@@ -139,12 +138,14 @@ type HttpResponse(send: Request -> Task<unit>) =
     member val HasStarted: bool = false with get, set
 
     member x.StatusCode
-        with get () = responseStart["status"] :?> int
+        with get () =
+            match statusCode with
+            | Some statusCode -> statusCode
+            | None -> 404
 
         and set (value: int) = responseStart["status"] <- value
 
     member x.Clear() =
-        responseStart["status"] <- 200
         responseStart["headers"] <- ResizeArray<_>()
         responseBody["body"] <- [||]
 
@@ -152,6 +153,10 @@ type HttpResponse(send: Request -> Task<unit>) =
         responseBody["body"] <- bytes
 
         if not x.HasStarted then
+            match statusCode with
+            | Some statusCode -> responseStart["status"] <- statusCode
+            | None -> responseStart["status"] <- 200
+
             do! send responseStart
             x.HasStarted <- true
 
@@ -162,7 +167,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         let headers = responseStart["headers"] :?> ResizeArray<string * obj>
         headers.Add((key, value.ToString()))
 
-    member x.SetStatusCode(status: int) = responseStart["status"] <- status
+    member x.SetStatusCode(status: int) = statusCode <- Some status
 
     member x.Redirect(location: string, permanent: bool) =
         let statusCode = if permanent then 301 else 302
@@ -170,7 +175,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         x.SetStatusCode(statusCode)
         x.SetHttpHeader("Location", location)
 
-type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, services: ServiceCollection) =
+type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
     // do printfn "Scope  %A" scope
     let scope = scope
     let send = send
@@ -184,7 +189,7 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member _.Request = request
     member _.Response = response
 
-    member _.RequestServices = services
+    member _.RequestServices = scope["services"] :?> ServiceCollection
 
     member ctx.WriteBytesAsync(bytes: byte[]) = task {
         ctx.SetHttpHeader(HeaderNames.ContentLength, bytes.Length)
@@ -219,3 +224,22 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member inline x.GetService<'T>() : 'T =
         let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
         service :?> 'T
+
+    member x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) = task {
+        let mutable responseHasStarted = false
+
+        let send' (request: Request) = task {
+            if
+                request.ContainsKey("type")
+                && request["type"] :?> string = "http.response.start"
+            then
+                responseHasStarted <- true
+
+            do! send request
+        }
+
+        do! app.Invoke(scope, receive, send')
+
+        if not responseHasStarted then
+            do! next x
+    }
