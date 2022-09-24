@@ -155,7 +155,9 @@ type HttpResponse(send: Request -> Task<unit>) =
         if not x.HasStarted then
             match statusCode with
             | Some statusCode -> responseStart["status"] <- statusCode
-            | None -> responseStart["status"] <- 200
+            | None ->
+                responseStart["status"] <- 200
+                statusCode <- Some 200
 
             do! send responseStart
             x.HasStarted <- true
