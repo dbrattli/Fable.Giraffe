@@ -101,7 +101,7 @@ type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
                 |> ResizeArray
             | _ -> ResizeArray<MediaTypeHeaderValue>()
 
-        and set (value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
+        and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
 
 type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
     member x.Path: string option = scope["path"] :?> string |> Some
@@ -123,14 +123,10 @@ type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
         |> HeaderDictionary
 
 type HttpResponse(send: Request -> Task<unit>) =
+    let mutable statusCode = None
+
     let responseStart =
-        Dictionary<string, obj>(
-            dict [
-                ("type", "http.response.start" :> obj)
-                ("status", 200)
-                ("headers", ResizeArray<_>())
-            ]
-        )
+        Dictionary<string, obj>(dict [ ("type", "http.response.start" :> obj); ("headers", ResizeArray<_>()) ])
 
     let responseBody =
         Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
@@ -143,15 +139,13 @@ type HttpResponse(send: Request -> Task<unit>) =
 
     member x.StatusCode
         with get () =
-            if x.HasStarted then
-                responseStart["status"] :?> int
-            else
-                404
+            match statusCode with
+            | Some statusCode -> statusCode
+            | None -> 404
 
         and set (value: int) = responseStart["status"] <- value
 
     member x.Clear() =
-        responseStart["status"] <- 200
         responseStart["headers"] <- ResizeArray<_>()
         responseBody["body"] <- [||]
 
@@ -159,6 +153,10 @@ type HttpResponse(send: Request -> Task<unit>) =
         responseBody["body"] <- bytes
 
         if not x.HasStarted then
+            match statusCode with
+            | Some statusCode -> responseStart["status"] <- statusCode
+            | None -> responseStart["status"] <- 200
+
             do! send responseStart
             x.HasStarted <- true
 
@@ -169,7 +167,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         let headers = responseStart["headers"] :?> ResizeArray<string * obj>
         headers.Add((key, value.ToString()))
 
-    member x.SetStatusCode(status: int) = responseStart["status"] <- status
+    member x.SetStatusCode(status: int) = statusCode <- Some status
 
     member x.Redirect(location: string, permanent: bool) =
         let statusCode = if permanent then 301 else 302

@@ -12,7 +12,7 @@ type GiraffeMiddleware(app: ASGIApp, handler: HttpHandler, loggerFactory: ILogge
     // pre-compile the handler pipeline
     let func: HttpFunc = handler earlyReturn
 
-    member inline x.InvokeAsync (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
+    member x.InvokeAsync (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
         let ctx = HttpContext(scope, receive, send)
 
         if ctx.Request.Protocol = "http" then

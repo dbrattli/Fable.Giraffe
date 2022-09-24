@@ -38,8 +38,8 @@ let printBytes (bytes : byte[]) =
 let getContentType (response : HttpResponse) =
     response.Headers["Content-Type"][0]
 
-type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, body: ResizeArray<byte array>, services: ServiceCollection) =
-    inherit HttpContext(scope, receive, send, services)
+type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, body: ResizeArray<byte array>) =
+    inherit HttpContext(scope, receive, send)
 
     member val buffer : ResizeArray<byte array> = body with get, set
 
@@ -48,8 +48,9 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
         let _method = defaultArg method "GET"
         let _path = defaultArg path "/"
         let _status = defaultArg status 200
+        let services = ServiceCollection()
         let _headers = defaultArg headers (HeaderDictionary()) |> (fun x -> x.Scoped)
-        let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status; "headers", _headers])
+        let _scope = Dictionary<string, obj> (dict ["method", _method :> obj; "path", _path; "status", _status; "headers", _headers; "services", services])
         let _response = Dictionary<string, obj> ()
         let _body = ResizeArray<byte array>()
 
@@ -76,8 +77,8 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
                 let bytes = body |> Option.defaultValue "" |> Encoding.UTF8.GetBytes
                 return Dictionary<string, obj> (dict ["body", bytes :> obj])
             }
-        let services = ServiceCollection()
-        HttpTestContext(_scope, receive, send, _body, services)
+
+        HttpTestContext(_scope, receive, send, _body)
 
 
     member this.Body
