@@ -142,7 +142,11 @@ type HttpResponse(send: Request -> Task<unit>) =
     member val HasStarted: bool = false with get, set
 
     member x.StatusCode
-        with get () = responseStart["status"] :?> int
+        with get () =
+            if x.HasStarted then
+                responseStart["status"] :?> int
+            else
+                404
 
         and set (value: int) = responseStart["status"] <- value
 
@@ -223,16 +227,21 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
         let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
         service :?> 'T
 
-    member inline x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) =
-        task {
-            let mutable responseHasStarted = false
+    member x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) = task {
+        let mutable responseHasStarted = false
 
-            let send' (request: Request) = task {
-                if request.ContainsKey("type") && request["type"] :?> string = "http.response.start" then
-                    responseHasStarted <- true
-                do! send request
-            }
-            do! app.Invoke(scope, receive, send')
-            if not responseHasStarted then
-                do! next x
+        let send' (request: Request) = task {
+            if
+                request.ContainsKey("type")
+                && request["type"] :?> string = "http.response.start"
+            then
+                responseHasStarted <- true
+
+            do! send request
         }
+
+        do! app.Invoke(scope, receive, send')
+
+        if not responseHasStarted then
+            do! next x
+    }
