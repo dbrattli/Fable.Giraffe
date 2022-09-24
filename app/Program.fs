@@ -29,12 +29,18 @@ let webApp =
         |> method
         |> HttpHandler.text "logged"
 
+        route "/public"
+        |> HttpHandler.staticFiles "public"
+
         text "Hello World!"
     ]
+
+let staticFiles = obj () :?> ASGIApp
 
 let app =
     WebHostBuilder()
         .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
         .UseStructlog()
-        .Configure(fun app -> app.UseGiraffe(webApp))
+        .Configure(fun app ->
+            app.UseGiraffe(webApp))
         .Build()

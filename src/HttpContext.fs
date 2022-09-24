@@ -12,6 +12,9 @@ type Scope = Dictionary<string, obj>
 type Request = Dictionary<string, obj>
 type Response = Dictionary<string, obj>
 
+/// https://asgi.readthedocs.io/
+type ASGIApp = Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>
+
 
 module HeaderNames =
     [<Literal>]
@@ -170,7 +173,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         x.SetStatusCode(statusCode)
         x.SetHttpHeader("Location", location)
 
-type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>, services: ServiceCollection) =
+type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
     // do printfn "Scope  %A" scope
     let scope = scope
     let send = send
@@ -184,7 +187,7 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member _.Request = request
     member _.Response = response
 
-    member _.RequestServices = services
+    member _.RequestServices = scope["services"] :?> ServiceCollection
 
     member ctx.WriteBytesAsync(bytes: byte[]) = task {
         ctx.SetHttpHeader(HeaderNames.ContentLength, bytes.Length)
@@ -219,3 +222,17 @@ type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request ->
     member inline x.GetService<'T>() : 'T =
         let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
         service :?> 'T
+
+    member inline x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) =
+        task {
+            let mutable responseHasStarted = false
+
+            let send' (request: Request) = task {
+                if request.ContainsKey("type") && request["type"] :?> string = "http.response.start" then
+                    responseHasStarted <- true
+                do! send request
+            }
+            do! app.Invoke(scope, receive, send')
+            if not responseHasStarted then
+                do! next x
+        }

@@ -2,19 +2,28 @@
 
 open System
 open System.Threading.Tasks
+open System.Collections.Generic
 
+open Fable.Core
 open Fable.Logging
 
-type ASGIApp = Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>
+type RequestDelegate = HttpContext -> Task<unit>
+
+/// https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.http.imiddleware?view=aspnetcore-6.0
+type IMiddleware =
+    [<Emit("$0($1, $2, $3)")>]
+    abstract __call__: scope: Scope * receive: (unit -> Task<Response>) * send: (Request -> Task<unit>) -> Task<unit>
+
+type Middleware (cls: Type, options: IDictionary<string, obj>) =
+    do ()
+
 
 type IApplicationBuilder =
     abstract ApplicationServices: ServiceCollection with get, set
 
-    abstract UseMiddleware: Func<ILoggerFactory, obj> -> IApplicationBuilder
+    abstract UseMiddleware: Func<ILoggerFactory, IMiddleware> -> IApplicationBuilder
 
-type IMiddleware =
-    abstract Invoke: HttpContext -> Task<unit>
-
+/// https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.hosting.iwebhostbuilder?view=aspnetcore-6.0
 type IWebHostBuilder =
     abstract Configure: Action<IApplicationBuilder> -> IWebHostBuilder
     abstract ConfigureLogging: Action<ILoggingBuilder> -> IWebHostBuilder
@@ -25,29 +34,33 @@ type WebHostBuilder() =
     let services = ServiceCollection()
     let pipelines = ResizeArray<IMiddleware>()
 
-    //logger.LogInformation("Giraffe ASGI middleware initialized")
-
     let asgiApp =
         Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(fun scope receive send ->
             task {
-                let ctx = HttpContext(scope, receive, send, services)
+                scope["services"] <- services
+                let ctx = HttpContext(scope, receive, send)
 
-                return! pipelines.[0].Invoke(ctx)
+                let next ctx = task {
+                    return ()
+                }
+                for pipeline in pipelines do
+                    do! pipeline.InvokeAsync(ctx, next)
+
             })
 
     interface IWebHostBuilder with
         member this.Configure(configureApp: Action<IApplicationBuilder>) =
             let app =
                 { new IApplicationBuilder with
-                    member this.UseMiddleware(func: Func<ILoggerFactory, obj>) =
-                        let pipeline = (func.Invoke(loggerFactory) :?> IMiddleware)
+                    member this.UseMiddleware(func: Func<ILoggerFactory, IMiddleware>) =
+                        let pipeline = func.Invoke(loggerFactory)
 
                         pipelines.Add(pipeline)
                         this
 
                     member this.ApplicationServices
                         with get () = services
-                        and set (_) = ()
+                        and set _ = ()
                 }
 
             configureApp.Invoke(app)
@@ -90,3 +103,13 @@ module Extensions =
             |> ignore
 
             this
+
+    type IApplicationBuilder with
+
+        member x.UseMiddleware(app: ASGIApp) : IApplicationBuilder =
+            let middleware = { new IMiddleware with
+                member x.InvokeAsync(ctx: HttpContext, next: RequestDelegate) = task {
+                    return! ctx.ContinueWith(app, next)
+                }
+            }
+            x.UseMiddleware(fun loggerFactory -> middleware)
