@@ -6,6 +6,8 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
+    <PacakgeTags>web;fable;fsharp;python;giraffe</PacakgeTags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
