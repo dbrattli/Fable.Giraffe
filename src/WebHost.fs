@@ -23,7 +23,7 @@ type WebHostBuilder() =
 
     let notFound =
         (setStatusCode 404
-         |> HttpHandler.text "Not Found 123")
+         |> HttpHandler.text "Not Found")
             earlyReturn
 
     let defaultApp =

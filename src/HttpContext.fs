@@ -12,8 +12,11 @@ type Scope = Dictionary<string, obj>
 type Request = Dictionary<string, obj>
 type Response = Dictionary<string, obj>
 
+type ReceiveAsync = unit -> Task<Response>
+type SendAsync = Request -> Task<unit>
+
 /// https://asgi.readthedocs.io/
-type ASGIApp = Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>
+type ASGIApp = Func<Scope, ReceiveAsync, SendAsync, Task<unit>>
 
 
 module HeaderNames =
@@ -103,7 +106,7 @@ type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
 
         and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
 
-type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
+type HttpRequest(scope: Scope, receive: ReceiveAsync) =
     member x.Path: string option = scope["path"] :?> string |> Some
 
     member x.Method: string = scope["method"] :?> string
@@ -122,7 +125,7 @@ type HttpRequest(scope: Scope, receive: unit -> Task<Response>) =
         scope["headers"] :?> Dictionary<string, string>
         |> HeaderDictionary
 
-type HttpResponse(send: Request -> Task<unit>) =
+type HttpResponse(send: SendAsync) =
     let mutable statusCode = None
 
     let responseStart =
@@ -177,8 +180,7 @@ type HttpResponse(send: Request -> Task<unit>) =
         x.SetStatusCode(statusCode)
         x.SetHttpHeader("Location", location)
 
-type HttpContext(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
-    // do printfn "Scope  %A" scope
+type HttpContext(scope: Scope, receive: ReceiveAsync, send: SendAsync) =
     let scope = scope
     let send = send
 

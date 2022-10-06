@@ -1,6 +1,7 @@
 module Fable.Python.Tests.Util
 
 module Testing =
+
 #if FABLE_COMPILER
     open Fable.Core
     open Fable.Core.PyInterop
@@ -27,10 +28,3 @@ module Testing =
 
     type Assert = Xunit.Assert
 #endif
-    let rec sumFirstSeq (zs: seq<float>) (n: int) : float =
-        match n with
-        | 0 -> 0.
-        | 1 -> Seq.head zs
-        | _ ->
-            (Seq.head zs)
-            + sumFirstSeq (Seq.skip 1 zs) (n - 1)
