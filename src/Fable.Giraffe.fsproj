@@ -7,7 +7,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
-    <PacakgeTags>web;fsharp;python;giraffe;fable;fable-library;fable-python</PacakgeTags>
+    <PackageTags>web;fsharp;python;giraffe;fable;fable-library;fable-python</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
