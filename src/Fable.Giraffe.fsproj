@@ -8,6 +8,7 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
     <PackageTags>web;fsharp;python;giraffe;fable;fable-library;fable-python</PackageTags>
+    <Description>Giraffe for Fable Python</Description>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
@@ -30,7 +31,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="4.0.0-theta-*" />
-    <PackageReference Include="Fable.Logging" Version="0.9.0" />
+    <PackageReference Include="Fable.Logging" Version="0.10.0" />
     <PackageReference Include="Fable.SimpleJson.Python" Version="1.6.0" />
   </ItemGroup>
   <ItemGroup>
