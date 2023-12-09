@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
