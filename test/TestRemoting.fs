@@ -2,7 +2,7 @@
 
 open System.Text
 
-open Fable.SimpleJson.Python
+open Fable.Giraffe.Json
 
 open Fable.Python.Tests.Util.Testing
 open Fable.Giraffe
@@ -94,14 +94,14 @@ let ``test remoting: POST "/greet" returns "Hello World"`` () =
 [<Fact>]
 let ``test remoting: POST "/updateModel" returns updated model`` () =
     let model = { Description = "Test"; Count = 0 }
-    let bytes = model |> List.singleton |> Json.serialize
+    let bytes = model |> List.singleton |> serialize
     let testCtx = HttpTestContext(path="/IServer/updateModel", method="POST", body=bytes)
     let app =
         Remoting.createApi()
         |> Remoting.fromValue greetingApi
         |> Remoting.buildHttpHandler
 
-    let expected = { model with Count = 1 } |> Json.serialize |> Encoding.UTF8.GetBytes
+    let expected = { model with Count = 1 } |> serialize |> Encoding.UTF8.GetBytes
 
     task {
         let! result = app next testCtx
@@ -113,7 +113,7 @@ let ``test remoting: POST "/updateModel" returns updated model`` () =
 [<Fact>]
 let ``test remoting: POST "/divide" returns float`` () =
     let args = [ 5.0; 2.0 ]
-    let bytes = args |> Json.serialize
+    let bytes = args |> serialize
     let testCtx = HttpTestContext(path="/IServer/divide", method="POST", body=bytes)
     let app =
         Remoting.createApi()

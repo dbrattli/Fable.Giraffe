@@ -31,28 +31,37 @@ type IServiceCollection =
     abstract AddSingleton: serviceType: Type * implementationInstance: obj -> IServiceCollection
 
 
-/// A simplified service colletion for now
+/// A simplified service collection for now.
+/// Uses string keys (Type.FullName) to avoid fable-library bug where
+/// TypeInfo.__hash__ returns int32 instead of plain int.
 type ServiceCollection() =
-    let singletons = Dictionary<Type, ServiceDescriptor>()
+    let singletons = Dictionary<string, ServiceDescriptor>()
 
     member val Services = singletons with get, set
 
     member inline x.AddSingleton<'T when 'T: not struct>(serviceType: 'T) =
-        x.Services[ typeof<'T> ] <- Singleton serviceType
+        x.Services[ typeof<'T>.FullName ] <- Singleton serviceType
 
     member inline x.GetService<'TService>() =
-        match x.Services.TryGetValue(typeof<'TService>) with
+        match x.Services.TryGetValue(typeof<'TService>.FullName) with
         | true, (Singleton service) -> service :?> 'TService
         | _ -> failwithf $"Service %A{typeof<'TService>} not found"
 
     member x.GetService(serviceType: Type) =
-        match x.Services.TryGetValue(serviceType) with
+        match x.Services.TryGetValue(serviceType.FullName) with
         | true, service -> service
         | _ -> failwithf $"Service %A{serviceType} not found"
 
 
 [<AutoOpen>]
 module Helpers =
+    [<Fable.Core.Emit("len($0)")>]
+    let len (x: 'T) : int = Seq.length x
+
+    /// Convert Fable's int32 wrapper to a plain Python int.
+    /// ASGI (h11/uvicorn) requires native int for status codes etc.
+    [<Fable.Core.Emit("int($0)")>]
+    let toNativeInt (x: int) : int = x
     /// <summary>
     /// Checks if an object is not null.
     /// </summary>

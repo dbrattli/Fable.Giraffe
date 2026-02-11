@@ -4,9 +4,11 @@ open System
 open System.Text
 
 open FSharp.Reflection
-open Fable.SimpleJson.Python
+
+open Fable.Core
 
 open Fable.Giraffe
+open Fable.Giraffe.Json
 
 // Signature of the function that will be called by the client. Needs to be uncurried.
 [<RequireQualifiedAccess>]
@@ -32,28 +34,28 @@ type Signature<'A, 'B, 'C, 'TResult> =
         | _ -> failwith "Only methods with 1, 2 or 3 arguments are supported"
 
 module RemotongHelpers =
+    /// Convert a Python dict to a record instance using Fable reflection TypeInfo.
+    [<Emit("$1.construct(*[$0[f[0]] for f in $1.fields()]) if isinstance($0, dict) and getattr($1, 'construct', None) and getattr($1, 'fields', None) else $0")>]
+    let private convertArg (value: obj) (targetType: Type) : obj = nativeOnly
+
     let dashifyRoute (path: string) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) ->
+        fun (next: HttpFunc) (ctx: HttpContext) -> task {
             let segment =
                 SubRouting.getNextPartOfPath ctx
                 |> dashify "_"
 
-            if segment.Equals path then next ctx else skipPipeline ()
+            if segment.Equals path then return! next ctx else return! skipPipeline ()
+        }
 
     let readArgumentsFromBodyAsync (ctx: HttpContext) (argumentTypes: Type array) = task {
         let! json = ctx.ReadBodyFromRequestAsync()
-        let inputJson = SimpleJson.parseNative json
+        let parsed = deserialize json
+        let args = parsed :?> obj seq |> Seq.toArray
 
-        match inputJson with
-        | Json.JArray args ->
-            let args =
-                args
-                |> List.mapi (fun i arg ->
-                    let typeInfo = createTypeInfo argumentTypes[i]
-                    Convert.fromJson<_> arg typeInfo)
-
-            return args
-        | _ -> return failwith "Expected an array of arguments"
+        return
+            args
+            |> Array.mapi (fun i arg -> convertArg arg argumentTypes[i])
+            |> Array.toList
     }
 
     let getFunctionTypes (funcType: Type) (param: Reflection.PropertyInfo) =
@@ -100,22 +102,20 @@ module RemotongHelpers =
 
                     let resultType = functionTypes[functionTypes.Length - 1]
                     let method = Signature.Create<_, _, _, _>(value, argumentTypes.Length)
-                    let methodName = dashify "_" field.Name
+                    let methodName = dashify "_" (field.Name.TrimEnd('_'))
 
                     dashifyRoute $"/{methodName}"
                     >=> fun _ ctx -> task {
                             let! args = task {
                                 match argumentTypes with
-                                | [||]
-                                | [| PrimitiveType TypeInfo.Unit |] -> return [ () :> obj ]
+                                | [||] -> return [ () :> obj ]
+                                | [| t |] when t = typeof<unit> -> return [ () :> obj ]
                                 | _ -> return! readArgumentsFromBodyAsync ctx argumentTypes
                             }
 
                             let! output = method.Invoke args |> Async.StartAsTask
 
-                            let json =
-                                createTypeInfo resultType
-                                |> Convert.serialize output
+                            let json = serialize output
 
                             ctx.SetContentType "application/json; charset=utf-8"
                             let body = Encoding.UTF8.GetBytes json

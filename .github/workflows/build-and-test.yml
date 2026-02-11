@@ -12,14 +12,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Setup .NET Core
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 6.0.401
+          dotnet-version: 8.0
+
+      - name: Install just
+        uses: extractions/setup-just@v2
 
       - name: Setup dotnet tools
         run: dotnet tool restore
@@ -30,22 +36,11 @@ jobs:
       - name: Install test dependencies
         run: dotnet restore test
 
-      - name: Install pytest runner
-        run: pip install pytest
-
-      - name: Install build dependencies
-        run: dotnet restore Build.fsproj
-
-      #- name: Check formatting
-      #  run: dotnet fantomas . -r --check
+      - name: Install Python dependencies
+        run: uv sync
 
       - name: Build
-        run: dotnet run Build --configuration Release --no-restore
-
-      - name: Install dependencies
-        run: |
-          pip install poetry
-          poetry install
+        run: just build
 
       - name: Test
-        run: dotnet run Test
+        run: just test

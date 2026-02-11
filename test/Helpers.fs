@@ -55,21 +55,13 @@ type HttpTestContext (scope: Scope, receive: unit -> Task<Response>, send: Reque
         let _body = ResizeArray<byte array>()
 
         let send (response: Response) =
-            let inline toMap kvps =
-                kvps
-                |> Seq.map (|KeyValue|)
-                |> Map.ofSeq
-
             task {
-                let xs = toMap response
-                for KeyValue(key, value) in xs do
+                for KeyValue(key, value) in response do
                     if key <> "type" then
-                        _response.Add(key, value)
+                        _response[key] <- value
 
                     if key = "body" then
-                        match value with
-                        | :? (byte array) as bytes -> _body.Add bytes
-                        | _ -> failwith "Body must be a byte array"
+                        _body.Add(value :?> byte array)
             }
 
         let receive () =

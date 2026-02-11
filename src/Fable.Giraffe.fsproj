@@ -11,6 +11,7 @@
     <Description>Giraffe for Fable Python</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Json.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="ShortGuid.fs" />
     <Compile Include="FormatExpressions.fs" />
@@ -30,9 +31,9 @@
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="4.0.0-theta-*" />
+    <PackageReference Include="Fable.Core" Version="5.0.0-beta.5" />
     <PackageReference Include="Fable.Logging" Version="0.10.0" />
-    <PackageReference Include="Fable.SimpleJson.Python" Version="1.6.0" />
+    <PackageReference Include="Fable.Python" Version="5.0.0-alpha.21.5" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\pyproject.toml; *.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />

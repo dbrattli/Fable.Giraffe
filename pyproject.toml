@@ -1,25 +1,31 @@
-
-[tool.poetry]
+[project]
 name = "giraffe"
 version = "0.2.1"
 description = "Fable Giraffe"
-authors = ["Dag Brattli <dag@brattli.net>"]
+authors = [{ name = "Dag Brattli", email = "dag@brattli.net" }]
+requires-python = ">=3.12,<4.0"
 license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "fable-library==5.0.0a23",
+    "structlog>=24.4.0,<25",
+    "starlette>=0.38.5,<0.39",
+    "pydantic>=2.0.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-structlog = "^24.4.0"
-starlette = "^0.38.5"
+[dependency-groups]
+dev = [
+    "ruff>=0.11.0",
+    "pytest>=8.3.3,<9",
+    "pytest-asyncio>=0.24.0,<0.25",
+    "uvicorn>=0.30.6,<0.31",
+    "pyinstrument>=4.3.0,<5",
+]
 
-[tool.poetry.dev-dependencies]
-black = {version = "^22.8.0", allow-prereleases = true}
-pytest = "^8.3.3"
-pytest-asyncio = "^0.24.0"
-uvicorn = "^0.30.6"
-
-[tool.poetry.group.dev.dependencies]
-pyinstrument = "^4.3.0"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+package = false

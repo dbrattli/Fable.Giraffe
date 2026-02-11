@@ -32,13 +32,15 @@ type INegotiationConfig =
     abstract member UnacceptableHandler: HttpHandler
 
 let private unacceptableHandler =
-    fun (next: HttpFunc) (ctx: HttpContext) ->
-        (setStatusCode 406
-         >=> (ctx.Request.Headers[ "Accept" ].ToString()
-              |> sprintf "%s is unacceptable by the server."
-              |> text))
-            next
-            ctx
+    fun (next: HttpFunc) (ctx: HttpContext) -> task {
+        return!
+            (setStatusCode 406
+             >=> (ctx.Request.Headers[ "Accept" ].ToString()
+                  |> sprintf "%s is unacceptable by the server."
+                  |> text))
+                next
+                ctx
+    }
 
 /// <summary>
 /// The default implementation of <see cref="INegotiationConfig."/>

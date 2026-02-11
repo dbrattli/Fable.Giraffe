@@ -5,7 +5,7 @@ open System.Collections.Generic
 open System.Text
 open System.Threading.Tasks
 
-open Fable.SimpleJson.Python
+open Fable.Giraffe.Json
 
 
 type Scope = Dictionary<string, obj>
@@ -60,7 +60,7 @@ type HeaderDictionary(headers: Dictionary<string, StringValues>) =
 
     member x.Scoped =
         headers
-        |> Seq.map (fun (KeyValue (k, v)) -> ResizeArray([ k; v.ToString() ]))
+        |> Seq.map (fun (KeyValue (k, v)) -> ResizeArray([ k; String.Join(", ", v.ToArray()) ]))
         |> ResizeArray
 
 
@@ -100,6 +100,7 @@ type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
             match found with
             | Some value ->
                 value
+                |> Seq.skip 1
                 |> Seq.map MediaTypeHeaderValue
                 |> ResizeArray
             | _ -> ResizeArray<MediaTypeHeaderValue>()
@@ -135,8 +136,13 @@ type HttpResponse(send: SendAsync) =
         Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
 
     member x.Headers =
-        responseStart["headers"] :?> Dictionary<string, string>
-        |> HeaderDictionary
+        let tuples = responseStart["headers"] :?> ResizeArray<string * obj>
+        let dict = Dictionary<string, string>()
+
+        for (k, v) in tuples do
+            dict[k] <- string v
+
+        HeaderDictionary(dict)
 
     member val HasStarted: bool = false with get, set
 
@@ -146,7 +152,7 @@ type HttpResponse(send: SendAsync) =
             | Some statusCode -> statusCode
             | None -> 404
 
-        and set (value: int) = responseStart["status"] <- value
+        and set (value: int) = responseStart["status"] <- toNativeInt value
 
     member x.Clear() =
         responseStart["headers"] <- ResizeArray<_>()
@@ -157,9 +163,9 @@ type HttpResponse(send: SendAsync) =
 
         if not x.HasStarted then
             match statusCode with
-            | Some statusCode -> responseStart["status"] <- statusCode
+            | Some statusCode -> responseStart["status"] <- toNativeInt statusCode
             | None ->
-                responseStart["status"] <- 200
+                responseStart["status"] <- toNativeInt 200
                 statusCode <- Some 200
 
             do! send responseStart
@@ -196,7 +202,7 @@ type HttpContext(scope: Scope, receive: ReceiveAsync, send: SendAsync) =
     member _.RequestServices = scope["services"] :?> ServiceCollection
 
     member ctx.WriteBytesAsync(bytes: byte[]) = task {
-        ctx.SetHttpHeader(HeaderNames.ContentLength, bytes.Length)
+        ctx.SetHttpHeader(HeaderNames.ContentLength, len bytes)
 
         if ctx.Request.Method <> HttpMethods.Head then
             do! ctx.Response.WriteAsync(bytes)
@@ -222,7 +228,8 @@ type HttpContext(scope: Scope, receive: ReceiveAsync, send: SendAsync) =
         return
             body
             |> Encoding.UTF8.GetString
-            |> Json.parseNativeAs<'T>
+            |> deserialize
+            |> unbox<'T>
     }
 
     member inline x.GetService<'T>() : 'T =

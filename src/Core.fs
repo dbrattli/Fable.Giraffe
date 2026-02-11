@@ -4,7 +4,7 @@ namespace Fable.Giraffe
 open System.Text
 open System.Threading.Tasks
 
-open Fable.SimpleJson.Python
+open Fable.Giraffe.Json
 
 type HttpFuncResult = Task<HttpContext option>
 
@@ -22,10 +22,11 @@ module Core =
         fun (final: HttpFunc) ->
             let func = final |> handler2 |> handler1
 
-            fun (ctx: HttpContext) ->
+            fun (ctx: HttpContext) -> task {
                 match ctx.Response.HasStarted with
-                | true -> final ctx
-                | false -> func ctx
+                | true -> return! final ctx
+                | false -> return! func ctx
+            }
 
     let (>=>) = compose
 
@@ -83,11 +84,12 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let private httpVerb (validate: string -> bool) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) ->
+        fun (next: HttpFunc) (ctx: HttpContext) -> task {
             if validate ctx.Request.Method then
-                next ctx
+                return! next ctx
             else
-                skipPipeline ()
+                return! skipPipeline ()
+        }
 
     let GET: HttpHandler = httpVerb HttpMethods.IsGet
     let POST: HttpHandler = httpVerb HttpMethods.IsPost
@@ -159,15 +161,19 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let mustAccept (mimeTypes: string list) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) ->
+        fun (next: HttpFunc) (ctx: HttpContext) -> task {
             let headers = ctx.Request.GetTypedHeaders()
 
-            headers.Accept
-            |> Seq.map (fun h -> h.ToString())
-            |> Seq.exists (fun h -> mimeTypes |> Seq.contains h)
-            |> function
-                | true -> next ctx
-                | false -> skipPipeline ()
+            let accepted =
+                headers.Accept
+                |> Seq.map (fun h -> h.MediaType.Value)
+                |> Seq.exists (fun h -> mimeTypes |> Seq.contains h)
+
+            if accepted then
+                return! next ctx
+            else
+                return! skipPipeline ()
+        }
 
     /// <summary>
     /// Redirects to a different location with a `302` or `301` (when permanent) HTTP status code.
@@ -240,7 +246,7 @@ module Core =
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
     let inline json<'T> (dataObj: 'T) : HttpHandler =
         fun (_: HttpFunc) (ctx: HttpContext) ->
-            let json = Json.serialize dataObj
+            let json = serialize dataObj
             let bytes = Encoding.UTF8.GetBytes json
             ctx.SetContentType "application/json; charset=utf-8"
             ctx.WriteBytesAsync bytes

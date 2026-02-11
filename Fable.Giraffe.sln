@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30114.105
@@ -8,8 +8,6 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Giraffe.Tests", "test\Fable.Giraffe.Tests.fsproj", "{FDC2F895-981F-4BA1-A2D8-9F049F780875}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Program", "app\Program.fsproj", "{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Build", "Build.fsproj", "{1B3A2633-D1F6-449B-92B4-43CC540B0E4D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,9 +30,5 @@ Global
 		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9B9067B5-6F7C-4DF2-B187-B2762524F0B7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1B3A2633-D1F6-449B-92B4-43CC540B0E4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1B3A2633-D1F6-449B-92B4-43CC540B0E4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1B3A2633-D1F6-449B-92B4-43CC540B0E4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1B3A2633-D1F6-449B-92B4-43CC540B0E4D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
