@@ -27,6 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Fable.Giraffe.fsproj" />
+    <ProjectReference Include="..\src\python\Fable.Giraffe.Python.fsproj" />
   </ItemGroup>
 </Project>

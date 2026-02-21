@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
+    <PackageTags>web;fsharp;beam;erlang;giraffe;fable;cowboy</PackageTags>
+    <Description>Giraffe for Fable BEAM (Cowboy)</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PlatformHelpers.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="CowboyReq.fs" />
+    <Compile Include="../Helpers.fs" Link="Helpers.fs" />
+    <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
+    <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
+    <Compile Include="HttpContext.fs" />
+    <Compile Include="../Core.fs" Link="Core.fs" />
+    <Compile Include="../Routing.fs" Link="Routing.fs" />
+    <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
+    <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
+    <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
+    <Compile Include="WebHost.fs" />
+    <Compile Include="Middleware.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="5.0.0-beta.5" />
+  </ItemGroup>
+</Project>

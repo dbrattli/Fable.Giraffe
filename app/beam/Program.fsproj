@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,13 +6,12 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="public/index.html" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.0.0-beta.5" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\python\Fable.Giraffe.Python.fsproj" />
+    <ProjectReference Include="..\..\src\beam\Fable.Giraffe.Beam.fsproj" />
   </ItemGroup>
 </Project>
