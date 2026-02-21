@@ -3,70 +3,81 @@
 [![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)
 [![Nuget](https://img.shields.io/nuget/vpre/Fable.Giraffe)](https://www.nuget.org/packages/Fable.Giraffe/)
 
-Giraffe is a high performance, functional ASP.NET Core micro web framework
-for building rich web applications.
-
 Fable.Giraffe is a port of the
-[Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# library to
-[Fable](https://github.com/fable-compiler/Fable/) and
-[Fable.Python](https://github.com/fable-compiler/Fable.Python). I.e
-Fable.Giraffe is written in F# and runs on Python.
+[Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# web framework to
+[Fable](https://github.com/fable-compiler/Fable/). Write your web application
+once in F# and run it on Python (ASGI/uvicorn) or Erlang/BEAM (Cowboy).
 
 ## Example
 
 ```fsharp
 let webApp =
-    route "/ping" |> HttpHandler.text "pong"
+    choose [
+        route "/ping" >=> text "pong"
+        route "/json" >=> json {| name = "Dag"; age = 53 |}
+    ]
 
 let app =
     WebHostBuilder()
-        .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
-        .UseStructlog()
         .Configure(fun app -> app.UseGiraffe(webApp))
         .Build()
 ```
 
+## Prerequisites
+
+- .NET SDK 8+
+- Python >= 3.12 with [uv](https://github.com/astral-sh/uv)
+- Erlang/OTP 28+ (for BEAM target)
+
 ## Build
 
-To build Fable.Giraffe, run:
-
 ```console
-> poetry install
-> dotnet run Build
+just setup     # restore dotnet tools + uv sync
+just build     # compile F# library to Python (output: build/lib/)
+just build-beam  # compile F# library to Erlang (output: build/beam/)
 ```
 
-Building Fable.Giraffe for development purposes may require the very
-latest Fable compiler. You can build against the latest version of Fable
-by running e.g:
+For local Fable development (using a local Fable compiler checkout):
 
 ```console
-> dotnet run --project ..\..\..\Fable\src\Fable.Cli --lang Python
-```
-
-Remember to build fable library first if needed e.g run in Fable
-directory:
-
-```console
-> dotnet fsi build.fsx library-py
+just dev=true build
 ```
 
 ## Running
 
-To run the test server:
+### Python (ASGI)
 
 ```console
-> dotnet run App
+just app
 ```
 
-Note that Fable.Giraffe is a valid ASGI application so you can start the
-server manually using servers like [uvicorn](https://www.uvicorn.org/):
+This compiles the example app and starts it with uvicorn on port 8080.
+
+### Erlang/BEAM (Cowboy)
 
 ```console
-> poetry run uvicorn program:app  --port "8080" --workers 20
+just app-beam
 ```
+
+This compiles the example app to Erlang, builds with rebar3, and starts a Cowboy server on port 8080.
 
 ## Testing
 
 ```console
-> dotnet run Test
+just test          # native F# tests + compiled Python tests
+just test-native   # native F# tests only (xUnit)
+just test-python   # compiled Python tests only (pytest)
 ```
+
+## Benchmarks
+
+Simple `/ping` endpoint returning "pong", 10,000 requests with 100 concurrent
+connections (oha):
+
+| Metric | BEAM | .NET | Python |
+|---|---|---|---|
+| Requests/sec | 124,256 | 70,375 | 4,006 |
+| Avg latency | 0.79 ms | 1.40 ms | 24.9 ms |
+| P99 latency | 2.49 ms | 3.50 ms | 34.2 ms |
+
+BEAM: Erlang/OTP 28, Cowboy. .NET: Giraffe on ASP.NET Core. Python: uvicorn, 1 worker.
