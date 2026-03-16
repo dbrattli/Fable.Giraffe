@@ -20,24 +20,15 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Setup .NET Core
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0
+          dotnet-version: 8.x
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
 
-      - name: Setup dotnet tools
-        run: dotnet tool restore
-
-      - name: Install src dependencies
-        run: dotnet restore src
-
-      - name: Install test dependencies
-        run: dotnet restore test
-
-      - name: Install Python dependencies
-        run: uv sync
+      - name: Setup
+        run: just setup
 
       - name: Build
         run: just build
