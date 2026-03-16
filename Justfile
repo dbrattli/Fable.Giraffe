@@ -7,22 +7,21 @@ app_path := "app"
 dev := "false"
 fable := if dev == "true" { "dotnet run --project ../Fable/src/Fable.Cli --" } else { "dotnet fable" }
 
-# BEAM compiler is always the separate fable-beam CLI (not available in standard dotnet fable)
-fable_beam := "dotnet run --project ../fable/main/src/Fable.Cli --"
 
 default:
     @just --list
 
 clean:
-    rm -rf {{build_path}}
+    rm -rf {{build_path}} apps _build
 
 build: clean
     mkdir -p {{build_path}}
     {{fable}} {{src_path}} --exclude Fable.Core --lang Python --outDir {{build_path}}/lib
 
-build-beam: clean
-    mkdir -p {{build_path}}/beam
-    {{fable_beam}} src/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/beam
+build-beam:
+    rm -rf apps _build
+    {{fable}} src/beam --exclude Fable.Core --lang beam --outDir apps/giraffe
+    rebar3 compile
 
 app: clean
     mkdir -p {{build_path}}
@@ -30,12 +29,13 @@ app: clean
     cd {{app_path}} && uv run uvicorn program:app --port 8080 --workers 1 --log-level error
 
 app-beam: build-beam
-    mkdir -p {{build_path}}/beam/app
-    {{fable_beam}} app/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/beam/app
-    cp {{build_path}}/beam/*.erl app/beam/src/
-    cp {{build_path}}/beam/app/*.erl app/beam/src/
-    cp {{build_path}}/beam/fable_modules/fable-library-beam/*.erl app/beam/src/
-    cd app/beam && rebar3 compile && rebar3 shell
+    {{fable}} app/beam --exclude Fable.Core --lang beam --outDir apps/giraffe_app
+    rebar3 compile
+    erl \
+        -pa _build/default/lib/*/ebin \
+        -noshell \
+        -eval 'application:ensure_all_started(cowboy), program:start()' \
+        -eval 'receive stop -> ok end'
 
 test: build
     dotnet build {{test_path}}
@@ -61,3 +61,11 @@ format:
 setup:
     dotnet tool restore
     uv sync
+
+# Create NuGet packages with specific version (used in CI)
+pack-version version:
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} {{src_path}}
+
+# Run EasyBuild.ShipIt for release management
+shipit *args:
+    dotnet shipit --pre-release rc {{args}}

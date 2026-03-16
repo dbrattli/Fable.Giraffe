@@ -3,17 +3,12 @@ namespace Fable.Giraffe
 open System
 open System.Threading.Tasks
 open Fable.Core
+open Fable.Beam.Cowboy
+module Cowboy = Fable.Beam.Cowboy.Cowboy
+module CowboyRouter = Fable.Beam.Cowboy.CowboyRouter
 open Fable.Giraffe.Pipelines
 
 module CowboyFFI =
-    /// Cowboy router compile: cowboy_router:compile(Routes)
-    [<Emit("cowboy_router:compile($0)")>]
-    let cowboyRouterCompile (routes: obj) : obj = nativeOnly
-
-    /// Start Cowboy clear (HTTP) listener.
-    [<Emit("cowboy:start_clear($0, $1, $2)")>]
-    let cowboyStartClear (name: obj) (transportOpts: obj) (protoOpts: obj) : obj = nativeOnly
-
     /// Create an Erlang map #{env => #{dispatch => Dispatch}}
     [<Emit("#{ env => #{ dispatch => $0 } }")>]
     let makeProtocolOpts (dispatch: obj) : obj = nativeOnly
@@ -80,12 +75,12 @@ type WebHostBuilder() =
                 // Build Cowboy routing dispatch: all paths → middleware module with handler as state
                 let catchAllRoute = CowboyFFI.makeCatchAllRoute CowboyFFI.middlewareAtom h
                 let hostMatch = CowboyFFI.makeHostMatch (CowboyFFI.singletonList catchAllRoute)
-                let dispatch = CowboyFFI.cowboyRouterCompile (CowboyFFI.singletonList hostMatch)
+                let dispatch = CowboyRouter.compile (CowboyFFI.singletonList hostMatch)
 
                 let transportOpts = CowboyFFI.makeTransportOpts port
                 let protoOpts = CowboyFFI.makeProtocolOpts dispatch
 
-                CowboyFFI.cowboyStartClear CowboyFFI.httpAtom transportOpts protoOpts |> ignore
+                Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts |> ignore
                 CowboyFFI.ioFormat1 "Starting Giraffe on port ~p~n" port
 
     member this.Configure(configureApp: Action<IApplicationBuilder>) =

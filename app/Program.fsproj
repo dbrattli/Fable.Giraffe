@@ -10,7 +10,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="5.0.0-beta.5" />
+    <PackageReference Include="Fable.Core" Version="5.0.0-rc.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\python\Fable.Giraffe.Python.fsproj" />

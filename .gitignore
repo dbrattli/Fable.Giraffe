@@ -138,6 +138,9 @@ obj/
 .vscode/
 Fable.Giraffe.sln.DotSettings.user
 
-# Generated Erlang files (produced by just app-beam)
-app/beam/src/*.erl
-app/beam/_build/
+# BEAM build output (Fable-generated Erlang apps and rebar3 build)
+apps/
+_build/
+rebar.lock
+
+.fake

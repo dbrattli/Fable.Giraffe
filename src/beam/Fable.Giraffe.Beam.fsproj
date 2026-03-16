@@ -13,7 +13,6 @@
   <ItemGroup>
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
-    <Compile Include="CowboyReq.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
     <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
     <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
@@ -31,6 +30,7 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="5.0.0-beta.5" />
+    <PackageReference Include="Fable.Core" Version="5.0.0-rc.1" />
+    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.5" />
   </ItemGroup>
 </Project>
