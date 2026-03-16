@@ -2,7 +2,10 @@ namespace Fable.Giraffe
 
 open System.Threading.Tasks
 open Fable.Core
-open Fable.Giraffe.CowboyReq
+open Fable.Beam.Cowboy.CowboyReq
+
+module CowboyReq = Fable.Beam.Cowboy.CowboyReq
+module CowboyHandler = Fable.Beam.Cowboy.CowboyHandler
 
 /// Cowboy handler module.
 /// Implements init/2 which:
@@ -18,10 +21,6 @@ module GiraffeHandler =
     /// Erlang maps:from_list — converts list of tuples to map
     [<Emit("maps:from_list($0)")>]
     let private mapsFromList (pairs: obj) : obj = nativeOnly
-
-    /// Return {ok, Req, State} for Cowboy handler
-    [<Emit("{ok, $0, $1}")>]
-    let private okTuple (req: obj) (state: obj) : obj = nativeOnly
 
     /// The Cowboy handler init callback.
     /// Called for every incoming request.
@@ -44,8 +43,8 @@ module GiraffeHandler =
         // Always use reply/4 — Cowboy handles empty iolist body ([]) fine.
         // (Empty body [||] compiles to [] on BEAM which is valid iodata.)
         let status = ctx.Response.StatusCode
-        let body = byteArrayToBinary ctx.Response.Body
+        let body: string = byteArrayToBinary ctx.Response.Body |> unbox
         let headerMap = mapsFromList (ctx.Response.GetHeadersMap())
         let req2 = CowboyReq.reply status headerMap body req
 
-        okTuple req2 state
+        CowboyHandler.ok req2 state

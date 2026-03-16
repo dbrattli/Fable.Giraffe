@@ -7,7 +7,9 @@ open System.Threading.Tasks
 
 open Fable.Core
 open Fable.Giraffe.Json
-open Fable.Giraffe.CowboyReq
+open Fable.Beam.Cowboy.CowboyReq
+
+module CowboyReq = Fable.Beam.Cowboy.CowboyReq
 
 /// ASGI-compatible type aliases (kept for shared code compatibility)
 type Scope = Dictionary<string, obj>

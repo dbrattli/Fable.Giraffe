@@ -14,17 +14,8 @@ let private jsonEncode (term: obj) : string = nativeOnly
 [<Emit("giraffe_json_encoder:decode($0)")>]
 let jsonDecode (binary: byte array) : obj = nativeOnly
 
-[<Emit("maps:from_list($0)")>]
-let private mapsFromList (proplist: obj) : obj = nativeOnly
-
 [<Emit("erlang:is_map($0)")>]
 let private isMap (o: obj) : bool = nativeOnly
-
-[<Emit("maps:to_list($0)")>]
-let private mapsToList (o: obj) : (string * obj) array = nativeOnly
-
-[<Emit("erlang:atom_to_binary($0)")>]
-let private atomToBinary (o: obj) : string = nativeOnly
 
 [<Emit("erlang:is_atom($0)")>]
 let private isAtom (o: obj) : bool = nativeOnly
