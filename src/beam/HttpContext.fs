@@ -112,18 +112,18 @@ type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
 
 /// HTTP request backed by a Cowboy request object.
 type HttpRequest(req: Req) =
-    member x.Path: string option = CowboyReq.path req |> Some
+    member x.Path: string option = Fable.Beam.Cowboy.CowboyReq.path req |> Some
 
-    member x.Method: string = CowboyReq.method' req
+    member x.Method: string = Fable.Beam.Cowboy.CowboyReq.method' req
 
-    member x.Protocol: string = CowboyReq.scheme req
+    member x.Protocol: string = Fable.Beam.Cowboy.CowboyReq.scheme req
 
     member x.GetTypedHeaders() : RequestHeaders =
         // Convert Cowboy headers map to the expected format
         RequestHeaders(ResizeArray())
 
     member x.GetBodyAsync() = task {
-        let (_ok, body, _req2) = CowboyReq.readBody req
+        let (_ok, body, _req2) = Fable.Beam.Cowboy.CowboyReq.readBody req
         return body
     }
 

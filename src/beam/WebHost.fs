@@ -37,10 +37,6 @@ module CowboyFFI =
     [<Emit("[$0]")>]
     let singletonList (x: obj) : obj = nativeOnly
 
-    /// Erlang io:format with a single argument (native list)
-    [<Emit("io:format($0, [$1])")>]
-    let ioFormat1 (fmt: string) (arg: obj) : unit = nativeOnly
-
 type IApplicationBuilder =
     abstract ApplicationServices: ServiceCollection with get, set
     abstract UseGiraffe: HttpHandler -> unit
@@ -81,7 +77,7 @@ type WebHostBuilder() =
                 let protoOpts = CowboyFFI.makeProtocolOpts dispatch
 
                 Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts |> ignore
-                CowboyFFI.ioFormat1 "Starting Giraffe on port ~p~n" port
+                Fable.Beam.Io.format "Starting Giraffe on port ~p~n" [ box port ]
 
     member this.Configure(configureApp: Action<IApplicationBuilder>) =
         (this :> IWebHostBuilder).Configure(configureApp) |> ignore

@@ -138,9 +138,8 @@ obj/
 .vscode/
 Fable.Giraffe.sln.DotSettings.user
 
-# BEAM build output (Fable-generated Erlang apps and rebar3 build)
-apps/
-_build/
-rebar.lock
+# BEAM build output lives under build/ (already gitignored)
 
 .fake
+.claude/worktrees/
+erl_crash.dump

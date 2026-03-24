@@ -18,10 +18,6 @@ module GiraffeHandler =
     [<Emit("$0")>]
     let private taskToAsync (t: Task<'a>) : Async<'a> = nativeOnly
 
-    /// Erlang maps:from_list — converts list of tuples to map
-    [<Emit("maps:from_list($0)")>]
-    let private mapsFromList (pairs: obj) : obj = nativeOnly
-
     /// The Cowboy handler init callback.
     /// Called for every incoming request.
     let init (req: Req) (state: obj) : obj =
@@ -44,7 +40,7 @@ module GiraffeHandler =
         // (Empty body [||] compiles to [] on BEAM which is valid iodata.)
         let status = ctx.Response.StatusCode
         let body: string = byteArrayToBinary ctx.Response.Body |> unbox
-        let headerMap = mapsFromList (ctx.Response.GetHeadersMap())
+        let headerMap = Fable.Beam.Maps.maps.from_list (ctx.Response.GetHeadersMap())
         let req2 = CowboyReq.reply status headerMap body req
 
         CowboyHandler.ok req2 state
