@@ -14,7 +14,7 @@ classifiers = [
 dependencies = [
     "fable-library==5.0.0rc3",
     "structlog>=24.4.0,<25",
-    "starlette>=0.38.5,<0.39",
+    "starlette>=1.0.0,<2",
     "pydantic>=2.0.0",
 ]
 
