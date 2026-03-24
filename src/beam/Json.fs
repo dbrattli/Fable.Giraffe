@@ -2,27 +2,15 @@ module Fable.Giraffe.Json
 
 open Fable.Core
 
-/// Erlang JSON encoding using the built-in json module (OTP 27+)
-/// or thoas/jsx for earlier versions. We use Emit to call the
-/// Erlang json module directly.
+/// JSON encoding/decoding using jsx (pure Erlang JSON library).
 
-/// Use giraffe_json_encoder to avoid module name collision with OTP's json module.
-/// (Fable.Giraffe.Json compiles to json.erl which shadows OTP's json module.)
-[<Emit("giraffe_json_encoder:encode($0)")>]
+[<Emit("jsx:encode($0)")>]
 let private jsonEncode (term: obj) : string = nativeOnly
 
-[<Emit("giraffe_json_encoder:decode($0)")>]
+[<Emit("jsx:decode($0, [return_maps])")>]
 let jsonDecode (binary: byte array) : obj = nativeOnly
 
-[<Emit("erlang:is_map($0)")>]
-let private isMap (o: obj) : bool = nativeOnly
-
-[<Emit("erlang:is_atom($0)")>]
-let private isAtom (o: obj) : bool = nativeOnly
-
 /// Serialize an F# value to a JSON string (binary on BEAM).
-/// Relies on Fable-BEAM's record→map compilation (Phase 3).
-/// giraffe_json_encoder:encode/1 returns a binary directly.
 let serialize (value: obj) : string =
     jsonEncode value
 

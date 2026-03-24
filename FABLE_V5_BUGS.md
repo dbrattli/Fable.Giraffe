@@ -1,104 +1,60 @@
 # Fable v5 Python Backend Bugs
 
-Bugs discovered while porting Fable.Giraffe to Fable 5.0.0-alpha.23. These should be investigated and fixed in the Fable compiler or fable-library.
+Bugs discovered while porting Fable.Giraffe to Fable v5. Updated for Fable 5.0.0-rc.5.
 
-## Bug 1: Missing `await` in async functions returning Task from if/match branches
+## Fixed in 5.0.0-rc.5
+
+### Missing `await` in if/match branches (statements)
+
+Previously, when an F# function returned `Task<T>` by passing through if/match branches without a `task {}` CE, Fable generated `async def` but omitted `await` on the returned coroutines. This is now fixed — if/match statements correctly generate `await` on both branches.
+
+### `match value with :? Type as x` reassigns outer variable in closure
+
+Previously, using `match value with | :? SomeType as x -> ...` inside a closure would reassign the outer variable in the compiled Python, triggering `UnboundLocalError`. This appears to be fixed (no longer reproducible).
+
+## Still broken in 5.0.0-rc.5
+
+### Missing `await` in ternary expressions
 
 **Severity:** Critical
 **Affects:** Python backend
 
-When an F# function returns `Task<T>` by passing through another task from if/match branches (without using a `task {}` CE), Fable generates `async def` but omits `await` on the returned coroutines.
+When Fable compiles a simple two-branch `match` on a boolean into a Python ternary expression, only one branch gets `await`. This happens when the function returns `Task<T>` directly (pass-through) without a `task {}` CE.
 
 **F# input:**
 
 ```fsharp
-type HttpFuncResult = Task<HttpContext option>
-type HttpFunc = HttpContext -> HttpFuncResult
-
-let skipPipeline () : HttpFuncResult = Task.FromResult None
-
-let httpVerb (validate: string -> bool) =
-    fun (next: HttpFunc) (ctx: HttpContext) ->
-        if validate ctx.Request.Method then
-            next ctx
-        else
-            skipPipeline ()
+let compose (handler1: HttpHandler) (handler2: HttpHandler) : HttpHandler =
+    fun (final: HttpFunc) ->
+        let func = final |> handler2 |> handler1
+        fun (ctx: HttpContext) ->
+            match ctx.Response.HasStarted with
+            | true -> final ctx
+            | false -> func ctx
 ```
 
 **Generated Python (incorrect):**
 
 ```python
-async def httpVerb(validate, next_1, ctx):
-    if validate(get_method(ctx)):
-        return next_1(ctx)        # BUG: returns coroutine object, not result
-    else:
-        return skipPipeline()     # BUG: same issue
+async def _arrow(ctx):
+    return await final(ctx) if has_started(ctx) else func(ctx)  # BUG: missing await on else branch
 ```
 
 **Expected Python:**
 
 ```python
-async def httpVerb(validate, next_1, ctx):
-    if validate(get_method(ctx)):
-        return await next_1(ctx)   # Should await
-    else:
-        return await skipPipeline() # Should await
+async def _arrow(ctx):
+    return await final(ctx) if has_started(ctx) else await func(ctx)
 ```
 
-**Also affects ternary expressions:**
+**Pattern:** Two-branch `match` on a boolean that Fable optimizes into a ternary expression. Multi-statement if/match blocks (which Fable emits as full `if/else` statements) are now correctly awaited.
 
-```python
-# Generated:
-return await final(ctx) if condition else func(ctx)  # Only one branch gets await
-
-# Expected:
-return await final(ctx) if condition else await func(ctx)
-```
-
-**Pattern:** Functions that return `Task<T>` directly (pass-through) without `task {}` CE. Functions with statements before the return (e.g., `do_something(); next ctx`) correctly get `await`.
-
-**Workaround:** Wrap in explicit `task { return! ... }`:
+**Workaround:** Wrap in explicit `task { return! ... }` to force the task builder path, which avoids the raw ternary:
 
 ```fsharp
-fun (next: HttpFunc) (ctx: HttpContext) -> task {
-    if validate ctx.Request.Method then
-        return! next ctx
-    else
-        return! skipPipeline ()
+fun (ctx: HttpContext) -> task {
+    match ctx.Response.HasStarted with
+    | true -> return! final ctx
+    | false -> return! func ctx
 }
-```
-
-## Bug 2: `match value with :? Type as x` reassigns outer variable in closure
-
-**Severity:** Medium
-**Affects:** Python backend
-
-When using type test pattern `match value with | :? SomeType as x -> ...` inside a closure, the compiled Python reassigns the outer `value` variable instead of creating a new binding. This triggers Python's `UnboundLocalError` due to closure scoping rules.
-
-**F# input:**
-
-```fsharp
-let process (value: obj) =
-    task {
-        if key = "body" then
-            match value with
-            | :? (byte array) as bytes -> body.Add bytes
-            | _ -> failwith "expected byte array"
-    }
-```
-
-**Generated Python (incorrect):**
-
-```python
-def _arrow(value=value):
-    if key == "body":
-        if isinstance(value, Array):     # UnboundLocalError!
-            value = cast(Array, value)   # This assignment shadows outer 'value'
-```
-
-**Workaround:** Avoid `match ... with :? T as x` pattern. Use direct cast instead:
-
-```fsharp
-if key = "body" then
-    body.Add(value :?> byte array)
 ```

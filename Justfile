@@ -7,21 +7,26 @@ app_path := "app"
 dev := "false"
 fable := if dev == "true" { "dotnet run --project ../Fable/src/Fable.Cli --" } else { "dotnet fable" }
 
+# BEAM compiler: use local Fable checkout when dev=true, otherwise use dotnet fable
+fable_beam := if dev == "true" { "dotnet run --project ../fable/main/src/Fable.Cli --" } else { "dotnet fable" }
 
 default:
     @just --list
 
 clean:
-    rm -rf {{build_path}} apps _build
+    rm -rf {{build_path}}
+
+clean-beam:
+    rm -rf {{build_path}}/apps {{build_path}}/_build
 
 build: clean
     mkdir -p {{build_path}}
     {{fable}} {{src_path}} --exclude Fable.Core --lang Python --outDir {{build_path}}/lib
 
-build-beam:
-    rm -rf apps _build
-    {{fable}} src/beam --exclude Fable.Core --lang beam --outDir apps/giraffe
-    rebar3 compile
+build-beam: clean-beam
+    {{fable_beam}} src/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/apps/giraffe
+    cp rebar.config {{build_path}}/
+    cd {{build_path}} && rebar3 compile
 
 app: clean
     mkdir -p {{build_path}}
@@ -29,13 +34,9 @@ app: clean
     cd {{app_path}} && uv run uvicorn program:app --port 8080 --workers 1 --log-level error
 
 app-beam: build-beam
-    {{fable}} app/beam --exclude Fable.Core --lang beam --outDir apps/giraffe_app
-    rebar3 compile
-    erl \
-        -pa _build/default/lib/*/ebin \
-        -noshell \
-        -eval 'application:ensure_all_started(cowboy), program:start()' \
-        -eval 'receive stop -> ok end'
+    {{fable_beam}} app/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/apps/giraffe_app
+    cd {{build_path}} && rebar3 compile
+    erl -pa {{build_path}}/_build/default/lib/*/ebin -noshell -eval "application:ensure_all_started(cowboy)" -eval "program:start()" -eval "receive stop -> ok end"
 
 test: build
     dotnet build {{test_path}}
