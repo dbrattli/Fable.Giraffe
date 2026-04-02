@@ -22,11 +22,10 @@ module Core =
         fun (final: HttpFunc) ->
             let func = final |> handler2 |> handler1
 
-            fun (ctx: HttpContext) -> task {
+            fun (ctx: HttpContext) ->
                 match ctx.Response.HasStarted with
-                | true -> return! final ctx
-                | false -> return! func ctx
-            }
+                | true -> final ctx
+                | false -> func ctx
 
     let (>=>) = compose
 
