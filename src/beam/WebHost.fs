@@ -3,39 +3,21 @@ namespace Fable.Giraffe
 open System
 open System.Threading.Tasks
 open Fable.Core
+open Fable.Beam
 open Fable.Beam.Cowboy
 module Cowboy = Fable.Beam.Cowboy.Cowboy
 module CowboyRouter = Fable.Beam.Cowboy.CowboyRouter
 open Fable.Giraffe.Pipelines
 
 module CowboyFFI =
-    /// Create an Erlang map #{env => #{dispatch => Dispatch}}
-    [<Emit("#{ env => #{ dispatch => $0 } }")>]
-    let makeProtocolOpts (dispatch: obj) : obj = nativeOnly
-
-    /// Create transport opts with port: [{port, Port}]
-    [<Emit("[{port, $0}]")>]
-    let makeTransportOpts (port: int) : obj = nativeOnly
-
-    /// Create the catch-all route tuple: {"/[...]", Handler, State}
-    [<Emit("{<<\"/[...]\">>, $0, $1}")>]
-    let makeCatchAllRoute (handler: obj) (state: obj) : obj = nativeOnly
-
-    /// Create the host match: {'_', [Route]}
-    [<Emit("{'_', $0}")>]
-    let makeHostMatch (routes: obj) : obj = nativeOnly
-
-    /// Atom for the listener name
+    /// Atom for the listener name.
     [<Emit("http")>]
-    let httpAtom : obj = nativeOnly
+    let httpAtom: Atom = nativeOnly
 
-    /// Reference to the middleware Erlang module atom
+    /// The Erlang module atom implementing the cowboy_handler behaviour
+    /// (Middleware.fs compiles to the `middleware` module).
     [<Emit("middleware")>]
-    let middlewareAtom : obj = nativeOnly
-
-    /// Create a native Erlang list with one element: [$0]
-    [<Emit("[$0]")>]
-    let singletonList (x: obj) : obj = nativeOnly
+    let middlewareAtom: Atom = nativeOnly
 
 type IApplicationBuilder =
     abstract ApplicationServices: ServiceCollection with get, set
@@ -69,12 +51,12 @@ type WebHostBuilder() =
             | None -> failwith "No handler configured. Call UseGiraffe in Configure."
             | Some h ->
                 // Build Cowboy routing dispatch: all paths → middleware module with handler as state
-                let catchAllRoute = CowboyFFI.makeCatchAllRoute CowboyFFI.middlewareAtom h
-                let hostMatch = CowboyFFI.makeHostMatch (CowboyFFI.singletonList catchAllRoute)
-                let dispatch = CowboyRouter.compile (CowboyFFI.singletonList hostMatch)
+                let catchAllRoute = CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom h
+                let hostRule = CowboyRouter.hostRule CowboyRouter.wildcard [ catchAllRoute ]
+                let dispatch = CowboyRouter.compile [ hostRule ]
 
-                let transportOpts = CowboyFFI.makeTransportOpts port
-                let protoOpts = CowboyFFI.makeProtocolOpts dispatch
+                let transportOpts = Cowboy.tcpPort port
+                let protoOpts = Cowboy.protocolOpts dispatch
 
                 Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts |> ignore
                 Fable.Beam.Io.format "Starting Giraffe on port ~p~n" [ box port ]

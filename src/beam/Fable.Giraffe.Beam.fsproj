@@ -30,8 +30,8 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="5.0.0-rc.1" />
-    <PackageReference Include="Fable.Beam" Version="5.0.0-rc.14" />
-    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.14" />
+    <PackageReference Include="Fable.Core" Version="5.1.0" />
+    <PackageReference Include="Fable.Beam" Version="5.0.0-rc.32" />
+    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
   </ItemGroup>
 </Project>

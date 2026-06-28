@@ -2,7 +2,6 @@ namespace Fable.Giraffe
 
 open System
 open System.Collections.Generic
-open System.Text
 open System.Threading.Tasks
 
 open Fable.Core
@@ -180,9 +179,10 @@ type HttpResponse() =
         x.SetStatusCode(sc)
         x.SetHttpHeader("Location", location)
 
-    /// Get accumulated headers as a list of tuples.
-    member x.GetHeadersMap() : obj =
-        responseHeaders :> obj
+    /// Get accumulated headers as a list of (name, value) string tuples.
+    member x.GetHeadersMap() : (string * string) list =
+        responseHeaders
+        |> List.map (fun (k, v) -> (k, string v))
 
 type HttpContext(req: Req) =
     let items = Dictionary<string, obj>()
@@ -215,16 +215,17 @@ type HttpContext(req: Req) =
         ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
 
     member ctx.ReadBodyFromRequestAsync() : Task<string> = task {
-        let! bytes = ctx.Request.GetBodyAsync()
-        return bytes |> Encoding.UTF8.GetString
+        // Cowboy's read_body returns the body as a binary (string) already.
+        let! body = ctx.Request.GetBodyAsync()
+        return body
     }
 
     member inline x.BindJsonAsync<'T>() = task {
+        // Cowboy's read_body returns the body as a binary (string) already.
         let! body = x.Request.GetBodyAsync()
 
         return
             body
-            |> Encoding.UTF8.GetString
             |> deserialize
             |> unbox<'T>
     }
