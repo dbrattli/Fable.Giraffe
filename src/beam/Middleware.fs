@@ -40,7 +40,7 @@ module GiraffeHandler =
         // (Empty body [||] compiles to [] on BEAM which is valid iodata.)
         let status = ctx.Response.StatusCode
         let body: string = byteArrayToBinary ctx.Response.Body |> unbox
-        let headerMap = Fable.Beam.Maps.maps.from_list (ctx.Response.GetHeadersMap())
+        let headerMap = Fable.Beam.Maps.ofList (ctx.Response.GetHeadersMap())
         let req2 = CowboyReq.reply status headerMap body req
 
         CowboyHandler.ok req2 state

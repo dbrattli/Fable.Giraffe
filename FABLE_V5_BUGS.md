@@ -1,6 +1,13 @@
 # Fable v5 Python Backend Bugs
 
-Bugs discovered while porting Fable.Giraffe to Fable v5. Updated for Fable 5.0.0-rc.6.
+Bugs discovered while porting Fable.Giraffe to Fable v5. Updated for Fable 5.4.0.
+
+## Status on 5.4.0
+
+All bugs listed below are fixed. The library builds cleanly and the full test
+suite (native F# + compiled Python) passes on Fable 5.4.0. Record fields are no
+longer mangled with trailing underscores (only Python-keyword collisions are,
+e.g. `type` -> `type_`), which `Json.fs` still normalizes when serializing.
 
 ## Fixed in 5.0.0-rc.6
 
