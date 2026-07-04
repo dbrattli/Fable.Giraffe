@@ -38,6 +38,24 @@ app-beam: build-beam
     cd {{build_path}} && rebar3 compile
     erl -pa {{build_path}}/_build/default/lib/*/ebin -noshell -eval "application:ensure_all_started(cowboy)" -eval "program:start()" -eval "receive stop -> ok end"
 
+# Compile the F# library to JavaScript (output: build/js/)
+build-js: clean
+    mkdir -p {{build_path}}
+    {{fable}} src/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/js
+
+# Build + start the example app on Node's built-in http server (port 8080)
+app-js: clean
+    mkdir -p {{build_path}}
+    {{fable}} app/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/app-js
+    echo '{"type":"module"}' > {{build_path}}/app-js/package.json
+    node {{build_path}}/app-js/Program.js
+
+# Compile & run the Node smoke test for the JS backend
+test-js:
+    {{fable}} test/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/test-js
+    echo '{"type":"module"}' > {{build_path}}/test-js/package.json
+    node test/js/smoke.mjs
+
 test: build
     dotnet build {{test_path}}
     dotnet run --project {{test_path}}
