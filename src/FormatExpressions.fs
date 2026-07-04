@@ -32,18 +32,18 @@ let private formatStringMap =
 
     let shortIdPattern = "([-_0-9A-Za-z]{10}[048AEIMQUYcgkosw])"
 
-    dict [
-        // Char    Regex                    Parser
-        // -------------------------------------------------------------
-        'b', ("(?i:(true|false)){1}", (fun (s: string) -> bool.Parse s) >> box) // bool
-        'c', ("([^/]{1})", char >> box) // char
-        's', ("([^/]+)", decodeSlashes >> box) // string
-        'i', ("(-?\d+)", int32 >> box) // int
-        'd', ("(-?\d+)", int64 >> box) // int64
-        'f', ("(-?\d+\.{1}\d+)", float >> box) // float
-        'O', (guidPattern, parseGuid >> box) // Guid
-        'u', (shortIdPattern, ShortId.toUInt64 >> box)
-    ] // uint64
+    dict
+        [
+          // Char    Regex                    Parser
+          // -------------------------------------------------------------
+          'b', ("(?i:(true|false)){1}", (fun (s: string) -> bool.Parse s) >> box) // bool
+          'c', ("([^/]{1})", char >> box) // char
+          's', ("([^/]+)", decodeSlashes >> box) // string
+          'i', ("(-?\d+)", int32 >> box) // int
+          'd', ("(-?\d+)", int64 >> box) // int64
+          'f', ("(-?\d+\.{1}\d+)", float >> box) // float
+          'O', (guidPattern, parseGuid >> box) // Guid
+          'u', (shortIdPattern, ShortId.toUInt64 >> box) ] // uint64
 
 type MatchMode =
     | Exact // Will try to match entire string from start to end.
@@ -52,15 +52,12 @@ type MatchMode =
     | Contains // Will try to match a substring. Subject string should contain test case.
 
 type MatchOptions =
-    {
-        IgnoreCase: bool
-        MatchMode: MatchMode
-    }
+    { IgnoreCase: bool
+      MatchMode: MatchMode }
 
-    static member Exact = {
-        IgnoreCase = false
-        MatchMode = Exact
-    }
+    static member Exact =
+        { IgnoreCase = false
+          MatchMode = Exact }
 
     static member IgnoreCaseExact = { IgnoreCase = true; MatchMode = Exact }
 
@@ -115,10 +112,7 @@ let tryMatchInput (format: PrintfFormat<_, _, _, _, 'T>) (options: MatchOptions)
         if result.Groups.Count <= 1 then
             None
         else
-            let groups =
-                result.Groups
-                |> Seq.cast<Group>
-                |> Seq.skip 1
+            let groups = result.Groups |> Seq.cast<Group> |> Seq.skip 1
 
             let values =
                 (groups, formatChars)
@@ -132,9 +126,7 @@ let tryMatchInput (format: PrintfFormat<_, _, _, _, 'T>) (options: MatchOptions)
                 match values.Length with
                 | 1 -> values.[0]
                 | _ ->
-                    let types =
-                        values
-                        |> Array.map (fun v -> v.GetType())
+                    let types = values |> Array.map (fun v -> v.GetType())
 
                     let tupleType = FSharpType.MakeTupleType types
                     FSharpValue.MakeTuple(values, tupleType)

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../shared/Testing.fs" />
+    <Compile Include="TestContext.fs" />
+    <Compile Include="../shared/HandlerTests.fs" />
+    <Compile Include="../shared/RoutingTests.fs" />
+    <Compile Include="RemotingTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\python\Fable.Giraffe.Python.fsproj" />
+  </ItemGroup>
+</Project>

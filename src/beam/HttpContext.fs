@@ -10,105 +10,6 @@ open Fable.Beam.Cowboy.CowboyReq
 
 module CowboyReq = Fable.Beam.Cowboy.CowboyReq
 
-/// ASGI-compatible type aliases (kept for shared code compatibility)
-type Scope = Dictionary<string, obj>
-type Request = Dictionary<string, obj>
-type Response = Dictionary<string, obj>
-
-type ReceiveAsync = unit -> Task<Response>
-type SendAsync = Request -> Task<unit>
-
-/// Dummy ASGIApp type for shared code compatibility.
-/// On BEAM, the middleware pattern is different (Cowboy handlers).
-type ASGIApp = Func<Scope, ReceiveAsync, SendAsync, Task<unit>>
-
-
-module HeaderNames =
-    [<Literal>]
-    let ContentType = "content-type"
-
-    [<Literal>]
-    let ContentLength = "content-length"
-
-module HttpMethods =
-    [<Literal>]
-    let Head = "head"
-
-    let IsGet (method: string) = method = "GET"
-    let IsPost (method: string) = method = "POST"
-    let IsPatch (method: string) = method = "PATCH"
-    let IsPut (method: string) = method = "PUT"
-    let IsDelete (method: string) = method = "DELETE"
-    let IsHead (method: string) = method = "HEAD"
-    let IsOptions (method: string) = method = "OPTIONS"
-    let IsTrace (method: string) = method = "TRACE"
-    let IsConnect (method: string) = method = "CONNECT"
-
-type HeaderDictionary(headers: Dictionary<string, StringValues>) =
-    new(headers: Dictionary<string, string>) =
-        let dict =
-            headers
-            |> Seq.map (fun (KeyValue (k, v)) -> (k, StringValues v))
-            |> dict
-
-        HeaderDictionary(Dictionary(dict))
-
-    new() = HeaderDictionary(Dictionary<string, StringValues>())
-
-    member x.Item(key: string) = headers[key.ToLower()]
-
-    member x.Add(key: string, value: string) =
-        headers[key.ToLower()] <- StringValues(value)
-
-    member x.Add(key: string, value: StringValues) = headers[key.ToLower()] <- value
-
-    member x.Scoped =
-        headers
-        |> Seq.map (fun (KeyValue (k, v)) -> ResizeArray([ k; String.Join(", ", v.ToArray()) ]))
-        |> ResizeArray
-
-
-type StringSegment(value: string) =
-    member x.Value = value
-    override x.ToString() = value
-    static member Empty = StringSegment("")
-
-[<AllowNullLiteral>]
-type MediaTypeHeaderValue(value: string) =
-    let parts = value.Split(';')
-    let mediaType = parts[ 0 ].Trim()
-
-    let charset =
-        parts
-        |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
-
-    let charset =
-        charset
-        |> Option.map (fun c -> c.Split('=').[1].Trim())
-
-    member x.MediaType = StringSegment(mediaType)
-    member x.Quality = Nullable 1.0
-    member x.Charset = charset
-
-    override x.ToString() = value
-
-type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
-    member x.Accept
-        with get () =
-            let found =
-                headers
-                |> Seq.tryFind (fun x -> x[ 0 ].ToLower() = "accept")
-
-            match found with
-            | Some value ->
-                value
-                |> Seq.skip 1
-                |> Seq.map MediaTypeHeaderValue
-                |> ResizeArray
-            | _ -> ResizeArray<MediaTypeHeaderValue>()
-
-        and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
-
 /// HTTP request backed by a Cowboy request object.
 type HttpRequest(req: Req) =
     member x.Path: string option = CowboyReq.path req |> Some
@@ -121,13 +22,13 @@ type HttpRequest(req: Req) =
         // Convert Cowboy headers map to the expected format
         RequestHeaders(ResizeArray())
 
-    member x.GetBodyAsync() = task {
-        let (_ok, body, _req2) = CowboyReq.readBody req
-        return body
-    }
+    member x.GetBodyAsync() =
+        task {
+            let (_ok, body, _req2) = CowboyReq.readBody req
+            return body
+        }
 
-    member x.Headers =
-        HeaderDictionary()
+    member x.Headers = HeaderDictionary()
 
 /// HTTP response that accumulates state before sending via cowboy_req:reply.
 /// Uses mutable F# list for headers — avoids fable-beam ResizeArray/Seq
@@ -139,8 +40,10 @@ type HttpResponse() =
 
     member x.Headers =
         let dict = Dictionary<string, string>()
+
         for (k, v) in responseHeaders do
             dict[k] <- string v
+
         HeaderDictionary(dict)
 
     member val HasStarted: bool = false with get, set
@@ -158,16 +61,17 @@ type HttpResponse() =
         responseHeaders <- []
         body <- [||]
 
-    member x.WriteAsync(bytes: byte[]) = task {
-        body <- bytes
+    member x.WriteAsync(bytes: byte[]) =
+        task {
+            body <- bytes
 
-        if not x.HasStarted then
-            match statusCode with
-            | Some _ -> ()
-            | None -> statusCode <- Some 200
+            if not x.HasStarted then
+                match statusCode with
+                | Some _ -> ()
+                | None -> statusCode <- Some 200
 
-            x.HasStarted <- true
-    }
+                x.HasStarted <- true
+        }
 
     member x.SetHttpHeader(key: string, value: obj) =
         responseHeaders <- (key, value.ToString() :> obj) :: responseHeaders
@@ -198,42 +102,20 @@ type HttpContext(req: Req) =
 
     member _.RequestServices = scope["services"] :?> ServiceCollection
 
-    member ctx.WriteBytesAsync(bytes: byte[]) = task {
-        ctx.SetHttpHeader(HeaderNames.ContentLength, len bytes)
+    member ctx.ReadBodyFromRequestAsync() : Task<string> =
+        task {
+            // Cowboy's read_body returns the body as a binary (string) already.
+            let! body = ctx.Request.GetBodyAsync()
+            return body
+        }
 
-        if ctx.Request.Method <> HttpMethods.Head then
-            do! ctx.Response.WriteAsync(bytes)
+    member inline x.BindJsonAsync<'T>() =
+        task {
+            // Cowboy's read_body returns the body as a binary (string) already.
+            let! body = x.Request.GetBodyAsync()
 
-        return Some ctx
-    }
-
-    member ctx.SetStatusCode(statusCode: int) = ctx.Response.SetStatusCode(statusCode)
-
-    member ctx.SetHttpHeader(key: string, value: obj) = ctx.Response.SetHttpHeader(key, value)
-
-    member ctx.SetContentType(contentType: string) =
-        ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
-
-    member ctx.ReadBodyFromRequestAsync() : Task<string> = task {
-        // Cowboy's read_body returns the body as a binary (string) already.
-        let! body = ctx.Request.GetBodyAsync()
-        return body
-    }
-
-    member inline x.BindJsonAsync<'T>() = task {
-        // Cowboy's read_body returns the body as a binary (string) already.
-        let! body = x.Request.GetBodyAsync()
-
-        return
-            body
-            |> deserialize
-            |> unbox<'T>
-    }
-
-    member inline x.GetService<'T>() : 'T =
-        let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
-        service :?> 'T
+            return body |> deserialize |> unbox<'T>
+        }
 
     /// Set the services collection on this context (called by the middleware).
-    member x.SetServices(services: ServiceCollection) =
-        scope["services"] <- services
+    member x.SetServices(services: ServiceCollection) = scope["services"] <- services

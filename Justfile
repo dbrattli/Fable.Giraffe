@@ -50,32 +50,39 @@ app-js: clean
     echo '{"type":"module"}' > {{build_path}}/app-js/package.json
     node {{build_path}}/app-js/Program.js
 
-# Compile & run the Node smoke test for the JS backend
-test-js:
-    {{fable}} test/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/test-js
-    echo '{"type":"module"}' > {{build_path}}/test-js/package.json
-    node test/js/smoke.mjs
+# Run the shared behavioral suite across ALL Fable targets
+test: test-python test-js test-beam
 
-test: build
-    dotnet build {{test_path}}
-    dotnet run --project {{test_path}}
-    {{fable}} {{test_path}} --lang Python --outDir {{build_path}}/tests
-    uv run python -m pytest {{build_path}}/tests
-
+# Type-check the test projects on .NET (compile smoke only — the backends are Fable-only
+# runtimes, so there is no pure-.NET behavioral run).
 test-native:
-    dotnet build {{test_path}}
-    dotnet run --project {{test_path}}
+    dotnet build test/python
+    dotnet build test/js/Tests.fsproj
 
-test-python: build
-    {{fable}} {{test_path}} --lang Python --outDir {{build_path}}/tests
-    uv run python -m pytest {{build_path}}/tests
+# Python target: compile the shared suite to Python and run the explicit runner
+test-python:
+    {{fable}} test/python --exclude Fable.Core --lang Python --outDir {{build_path}}/tests-py
+    uv run python {{build_path}}/tests-py/main.py
+
+# JS target: compile the shared suite to JS and run it under Node
+test-js:
+    {{fable}} test/js/Tests.fsproj --exclude Fable.Core --lang javascript --outDir {{build_path}}/test-js
+    echo '{"type":"module"}' > {{build_path}}/test-js/package.json
+    node test/js/run.mjs
+
+# BEAM target: compile the shared suite to Erlang, build with rebar3, run on the BEAM VM
+test-beam:
+    {{fable}} test/beam --exclude Fable.Core --lang Erlang --outDir {{build_path}}/tests-beam
+    cp test/beam/rebar.config {{build_path}}/tests-beam/rebar.config
+    cd {{build_path}}/tests-beam && rebar3 compile
+    cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'erlang:halt(main:run())'
 
 pack: build
     dotnet pack -c Release {{src_path}}
 
 format:
-    dotnet fantomas src -r
-    dotnet fantomas {{test_path}} -r
+    dotnet fantomas src
+    dotnet fantomas {{test_path}}
 
 setup:
     dotnet tool restore

@@ -21,19 +21,18 @@ module GiraffeHandler =
     /// The Cowboy handler init callback.
     /// Called for every incoming request.
     let init (req: Req) (state: obj) : obj =
-        // Extract handler from state
-        let handler = state :?> HttpHandler
+        // State is (handler, services) — see WebHost.Build.
+        let handler, services = state :?> (HttpHandler * ServiceCollection)
         let func: HttpFunc = handler earlyReturn
 
-        // Create the HttpContext wrapping the Cowboy request
+        // Create the HttpContext wrapping the Cowboy request and give it the services
+        // collection so handlers can resolve dependencies (logger, etc.) via GetService.
         let ctx = HttpContext(req)
+        ctx.SetServices(services)
 
         // Run the handler pipeline synchronously.
         // On BEAM, Task CE is a CPS alias for Async — identity cast.
-        let _result =
-            func ctx
-            |> taskToAsync
-            |> Async.RunSynchronously
+        let _result = func ctx |> taskToAsync |> Async.RunSynchronously
 
         // Send the response via cowboy_req:reply/4.
         // Always use reply/4 — Cowboy handles empty iolist body ([]) fine.

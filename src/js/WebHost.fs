@@ -39,11 +39,7 @@ type WebHostBuilder() =
         this
 
     member this.ConfigureLogging(configureLogging: Action<ILoggingBuilder>) =
-        let loggingBuilder = loggerFactory :> ILoggingBuilder
-        configureLogging.Invoke(loggingBuilder)
-
-        let logger = loggerFactory.CreateLogger("Giraffe")
-        services.AddSingleton(logger)
+        Logging.configure loggerFactory services configureLogging
         this
 
     /// Log to the console via Fable.Logging's JS (console) provider — the JS

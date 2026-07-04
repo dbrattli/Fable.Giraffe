@@ -68,8 +68,10 @@ let giraffeDefault (o: obj) : obj =
             let tag: int = getattr' o "tag" :?> int
 
             let caseName =
-                if tag < cases.Length then cases.[tag]
-                else "Case" + string tag
+                if tag < cases.Length then
+                    cases.[tag]
+                else
+                    "Case" + string tag
 
             unionToList o caseName
         elif hasattr o "__slots__" then
@@ -82,5 +84,4 @@ let serialize (value: obj) : string =
     json.dumps (value, ``default`` = giraffeDefault)
 
 /// Deserialize a JSON string to a Python object (dict, list, etc).
-let inline deserialize (s: string) : obj =
-    Json.loads s
+let inline deserialize (s: string) : obj = Json.loads s

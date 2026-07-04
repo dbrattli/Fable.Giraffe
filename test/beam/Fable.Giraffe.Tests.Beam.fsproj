@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../shared/Testing.fs" />
+    <Compile Include="TestContext.fs" />
+    <Compile Include="../shared/HandlerTests.fs" />
+    <Compile Include="../shared/RoutingTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <PackageReference Include="Fable.Beam" Version="5.0.0-rc.32" />
+    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\beam\Fable.Giraffe.Beam.fsproj" />
+  </ItemGroup>
+</Project>

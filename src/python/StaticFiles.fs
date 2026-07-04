@@ -26,12 +26,13 @@ module StaticFilesMiddleware =
             x.UseMiddleware(fun app loggerFactory ->
                 let middleware = StaticFiles.Create(directory)
 
-                let inline asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
-                    try
-                        do! middleware.InvokeAsync(scope, receive, send)
-                    with ex ->
-                        do! app.Invoke(scope, receive, send)
-                }
+                let inline asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
+                    task {
+                        try
+                            do! middleware.InvokeAsync(scope, receive, send)
+                        with ex ->
+                            do! app.Invoke(scope, receive, send)
+                    }
 
                 Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(asgi))
             |> ignore

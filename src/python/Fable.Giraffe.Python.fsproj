@@ -14,15 +14,18 @@
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
+    <Compile Include="../Http.fs" Link="Http.fs" />
     <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
     <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
     <Compile Include="HttpContext.fs" />
+    <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
     <Compile Include="../Core.fs" Link="Core.fs" />
     <Compile Include="../Routing.fs" Link="Routing.fs" />
     <Compile Include="Remoting.fs" />
     <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
     <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
     <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
+    <Compile Include="../Logging.fs" Link="Logging.fs" />
     <Compile Include="WebHost.fs" />
     <Compile Include="Middleware.fs" />
     <Compile Include="StaticFiles.fs" />

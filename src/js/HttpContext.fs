@@ -51,94 +51,6 @@ module private NodeInterop =
         | i -> url.Substring(0, i)
 
 
-module HeaderNames =
-    [<Literal>]
-    let ContentType = "content-type"
-
-    [<Literal>]
-    let ContentLength = "content-length"
-
-module HttpMethods =
-    [<Literal>]
-    let Head = "HEAD"
-
-    let IsGet (method: string) = method = "GET"
-    let IsPost (method: string) = method = "POST"
-    let IsPatch (method: string) = method = "PATCH"
-    let IsPut (method: string) = method = "PUT"
-    let IsDelete (method: string) = method = "DELETE"
-    let IsHead (method: string) = method = "HEAD"
-    let IsOptions (method: string) = method = "OPTIONS"
-    let IsTrace (method: string) = method = "TRACE"
-    let IsConnect (method: string) = method = "CONNECT"
-
-type HeaderDictionary(headers: Dictionary<string, StringValues>) =
-    new(headers: Dictionary<string, string>) =
-        let dict =
-            headers
-            |> Seq.map (fun (KeyValue(k, v)) -> (k, StringValues v))
-            |> dict
-
-        HeaderDictionary(Dictionary(dict))
-
-    new() = HeaderDictionary(Dictionary<string, StringValues>())
-
-    member x.Item(key: string) = headers[key.ToLower()]
-
-    member x.Add(key: string, value: string) =
-        headers[key.ToLower()] <- StringValues(value)
-
-    member x.Add(key: string, value: StringValues) = headers[key.ToLower()] <- value
-
-    member x.Scoped =
-        headers
-        |> Seq.map (fun (KeyValue(k, v)) -> ResizeArray([ k; String.Join(", ", v.ToArray()) ]))
-        |> ResizeArray
-
-
-type StringSegment(value: string) =
-    member x.Value = value
-
-    override x.ToString() = value
-
-    static member Empty = StringSegment("")
-
-[<AllowNullLiteral>]
-type MediaTypeHeaderValue(value: string) =
-    let parts = value.Split(';')
-    let mediaType = parts[0].Trim()
-
-    let charset =
-        parts
-        |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
-
-    let charset =
-        charset
-        |> Option.map (fun c -> c.Split('=').[1].Trim())
-
-    member x.MediaType = StringSegment(mediaType)
-    member x.Quality = Nullable 1.0
-    member x.Charset = charset
-
-    override x.ToString() = value
-
-type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
-    member x.Accept
-        with get () =
-            let found =
-                headers
-                |> Seq.tryFind (fun x -> x[0].ToLower() = "accept")
-
-            match found with
-            | Some value ->
-                value
-                |> Seq.skip 1
-                |> Seq.map MediaTypeHeaderValue
-                |> ResizeArray
-            | _ -> ResizeArray<MediaTypeHeaderValue>()
-
-        and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
-
 // --- Node request/response wrappers -----------------------------------------
 
 type HttpRequest(req: IncomingMessage) =
@@ -214,26 +126,6 @@ type HttpContext(req: IncomingMessage, res: ServerResponse, services: ServiceCol
     member _.Response = response
     member _.RequestServices = services
 
-    member ctx.WriteBytesAsync(bytes: byte[]) =
-        task {
-            ctx.SetHttpHeader(HeaderNames.ContentLength, len bytes)
-
-            // HEAD: send headers with the computed Content-Length but no body.
-            if HttpMethods.IsHead ctx.Request.Method then
-                do! ctx.Response.WriteAsync([||])
-            else
-                do! ctx.Response.WriteAsync(bytes)
-
-            return Some ctx
-        }
-
-    member ctx.SetStatusCode(statusCode: int) = ctx.Response.SetStatusCode(statusCode)
-
-    member ctx.SetHttpHeader(key: string, value: obj) = ctx.Response.SetHttpHeader(key, value)
-
-    member ctx.SetContentType(contentType: string) =
-        ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
-
     member ctx.ReadBodyFromRequestAsync() : Task<string> =
         task {
             let! bytes = ctx.Request.GetBodyAsync()
@@ -250,7 +142,3 @@ type HttpContext(req: IncomingMessage, res: ServerResponse, services: ServiceCol
                 |> deserialize
                 |> unbox<'T>
         }
-
-    member inline x.GetService<'T>() : 'T =
-        let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
-        service :?> 'T
