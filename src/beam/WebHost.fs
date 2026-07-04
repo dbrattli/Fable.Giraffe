@@ -83,7 +83,7 @@ type WebHostBuilder() =
     /// Log via Fable.Logging's BEAM (logger/OTP) provider — the BEAM counterpart of the
     /// Python backend's UseStructlog and the JS backend's UseConsoleLogging.
     member this.UseBeamLogging() =
-        this.ConfigureLogging(fun builder -> builder.AddProvider(Fable.Logging.Beam.LoggerProvider()))
+        this.ConfigureLogging(fun builder -> builder.AddProvider(new Fable.Logging.Beam.LoggerProvider()))
 
 module Host =
     let CreateDefaultBuilder (_: string array) = WebHostBuilder()
