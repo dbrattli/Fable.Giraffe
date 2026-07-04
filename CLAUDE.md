@@ -92,7 +92,7 @@ Tests in `test/` run in two modes: native F# (xUnit via `dotnet run`) and compil
 
 ### Fable 5 Workarounds
 
-The earlier Fable 5 alpha/RC code-generation bugs (missing `await` in if/match and ternary branches) are fixed as of Fable 5.4.0 — see `FABLE_V5_BUGS.md`. The `task { ... }` computation expressions in Core.fs and Routing.fs are now idiomatic Giraffe style rather than workarounds.
+The earlier Fable 5 alpha/RC code-generation bugs (missing `await` in if/match and ternary branches) are fixed as of Fable 5.4.0. The `task { ... }` computation expressions in Core.fs and Routing.fs are now idiomatic Giraffe style rather than workarounds.
 
 `Json.fs` still strips trailing underscores from serialized field names: Fable mangles identifiers that collide with Python keywords (e.g. `type` -> `type_`), so stripping restores the intended JSON key. Plain record fields are no longer mangled in 5.4, so for them this is a no-op.
 
