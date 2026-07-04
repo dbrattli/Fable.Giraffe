@@ -16,4 +16,4 @@ module PlatformHelpers =
     let byteArrayToBinary (bytes: byte[]) : byte[] = bytes
 
     [<Emit("ok")>]
-    let okAtom : obj = nativeOnly
+    let okAtom: obj = nativeOnly

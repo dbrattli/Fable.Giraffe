@@ -40,7 +40,7 @@ type ServiceCollection() =
     member val Services = singletons with get, set
 
     member inline x.AddSingleton<'T when 'T: not struct>(serviceType: 'T) =
-        x.Services[ typeof<'T>.FullName ] <- Singleton serviceType
+        x.Services[typeof<'T>.FullName] <- Singleton serviceType
 
     member inline x.GetService<'TService>() =
         match x.Services.TryGetValue(typeof<'TService>.FullName) with

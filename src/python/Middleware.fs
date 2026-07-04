@@ -12,40 +12,40 @@ type GiraffeMiddleware(app: ASGIApp, handler: HttpHandler, loggerFactory: ILogge
     // pre-compile the handler pipeline
     let func: HttpFunc = handler earlyReturn
 
-    member x.InvokeAsync(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) = task {
-        let ctx = HttpContext(scope, receive, send)
+    member x.InvokeAsync(scope: Scope, receive: unit -> Task<Response>, send: Request -> Task<unit>) =
+        task {
+            let ctx = HttpContext(scope, receive, send)
 
-        if ctx.Request.Protocol = "http" then
-            let start = Diagnostics.Stopwatch.GetTimestamp()
+            if ctx.Request.Protocol = "http" then
+                let start = Diagnostics.Stopwatch.GetTimestamp()
 
-            let! result = func ctx
+                let! result = func ctx
 
-            if logger.IsEnabled LogLevel.Debug then
-                let stop = Diagnostics.Stopwatch.GetTimestamp()
+                if logger.IsEnabled LogLevel.Debug then
+                    let stop = Diagnostics.Stopwatch.GetTimestamp()
 
-                let elapsedMs = (double (stop - start)) * 1000.0 / freq
+                    let elapsedMs = (double (stop - start)) * 1000.0 / freq
 
-                let logLevel =
-                    match ctx.Response.StatusCode with
-                    | code when code < 300 -> LogLevel.Information
-                    | code when code < 500 -> LogLevel.Error
-                    | _ -> LogLevel.Critical
+                    let logLevel =
+                        match ctx.Response.StatusCode with
+                        | code when code < 300 -> LogLevel.Information
+                        | code when code < 500 -> LogLevel.Error
+                        | _ -> LogLevel.Critical
 
-                logger.Log(
-                    logLevel,
-                    "Giraffe returned {Status} for {HttpProtocol} {HttpMethod} at {Path} in {ElapsedMs}",
-                    parameters = [|
-                        ctx.Response.StatusCode :> obj
-                        ctx.Request.Protocol
-                        ctx.Request.Method
-                        ctx.Request.Path.ToString()
-                        elapsedMs
-                    |]
-                )
+                    logger.Log(
+                        logLevel,
+                        "Giraffe returned {Status} for {HttpProtocol} {HttpMethod} at {Path} in {ElapsedMs}",
+                        parameters =
+                            [| ctx.Response.StatusCode :> obj
+                               ctx.Request.Protocol
+                               ctx.Request.Method
+                               ctx.Request.Path.ToString()
+                               elapsedMs |]
+                    )
 
-            if result.IsNone then
-                return! app.Invoke(scope, receive, send)
-    }
+                if result.IsNone then
+                    return! app.Invoke(scope, receive, send)
+        }
 
 [<AutoOpen>]
 module GiraffeMiddleware =
@@ -55,12 +55,13 @@ module GiraffeMiddleware =
             x.UseMiddleware(fun app loggerFactory ->
                 let middleware = GiraffeMiddleware(app, handler, loggerFactory)
 
-                let asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) = task {
-                    try
-                        do! middleware.InvokeAsync(scope, receive, send)
-                    with ex ->
-                        do! app.Invoke(scope, receive, send)
-                }
+                let asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
+                    task {
+                        try
+                            do! middleware.InvokeAsync(scope, receive, send)
+                        with ex ->
+                            do! app.Invoke(scope, receive, send)
+                    }
 
                 Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(asgi))
             |> ignore

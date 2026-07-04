@@ -32,15 +32,16 @@ type INegotiationConfig =
     abstract member UnacceptableHandler: HttpHandler
 
 let private unacceptableHandler =
-    fun (next: HttpFunc) (ctx: HttpContext) -> task {
-        return!
-            (setStatusCode 406
-             >=> (ctx.Request.Headers[ "Accept" ].ToString()
-                  |> sprintf "%s is unacceptable by the server."
-                  |> text))
-                next
-                ctx
-    }
+    fun (next: HttpFunc) (ctx: HttpContext) ->
+        task {
+            return!
+                (setStatusCode 406
+                 >=> (ctx.Request.Headers["Accept"].ToString()
+                      |> sprintf "%s is unacceptable by the server."
+                      |> text))
+                    next
+                    ctx
+        }
 
 /// <summary>
 /// The default implementation of <see cref="INegotiationConfig."/>
@@ -60,13 +61,12 @@ let private unacceptableHandler =
 type DefaultNegotiationConfig() =
     interface INegotiationConfig with
         member __.Rules =
-            dict [
-                "*/*", json
-                "application/json", json
-                //                "application/xml" , xml
-                //                "text/xml"        , xml
-                "text/plain", (fun x -> x.ToString() |> text)
-            ]
+            dict
+                [ "*/*", json
+                  "application/json", json
+                  //                "application/xml" , xml
+                  //                "text/xml"        , xml
+                  "text/plain", (fun x -> x.ToString() |> text) ]
 
         member __.UnacceptableHandler = unacceptableHandler
 
@@ -102,12 +102,8 @@ type NegotiationExtensions() =
     /// <returns>Task of Some HttpContext after writing to the body of the response.</returns>
     [<Extension>]
     static member NegotiateWithAsync
-        (
-            ctx: HttpContext,
-            negotiationRules: IDictionary<string, obj -> HttpHandler>,
-            unacceptableHandler: HttpHandler,
-            responseObj: obj
-        ) =
+        (ctx: HttpContext, negotiationRules: IDictionary<string, obj -> HttpHandler>, unacceptableHandler: HttpHandler, responseObj: obj)
+        =
         let acceptedMimeTypes = ctx.Request.GetTypedHeaders().Accept
 
         if

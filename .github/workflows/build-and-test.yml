@@ -24,6 +24,17 @@ jobs:
         with:
           dotnet-version: 8.x
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Erlang/rebar3
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          rebar3-version: '3'
+
       - name: Install just
         uses: extractions/setup-just@v4
 

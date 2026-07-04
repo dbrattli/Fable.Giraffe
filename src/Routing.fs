@@ -12,9 +12,7 @@ module SubRouting =
 
     let getSavedPartialPath (ctx: HttpContext) =
         if ctx.Items.ContainsKey RouteKey then
-            ctx.Items.Item RouteKey
-            |> string
-            |> strOption
+            ctx.Items.Item RouteKey |> string |> strOption
         else
             None
 
@@ -24,35 +22,36 @@ module SubRouting =
         | _ -> ctx.Request.Path.Value
 
     let routeWithPartialPath (path: string) (handler: HttpHandler) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let savedPartialPath = getSavedPartialPath ctx
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let savedPartialPath = getSavedPartialPath ctx
 
-            ctx.Items[ RouteKey ] <-
-                ((savedPartialPath
-                  |> Option.defaultValue "")
-                 + path)
+                ctx.Items[RouteKey] <-
+                    ((savedPartialPath |> Option.defaultValue "")
+                     + path)
 
-            let! result = handler next ctx
+                let! result = handler next ctx
 
-            match result with
-            | Some _ -> ()
-            | None ->
-                match savedPartialPath with
-                | Some subPath -> ctx.Items[ RouteKey ] <- subPath
-                | None -> ctx.Items.Remove RouteKey |> ignore
+                match result with
+                | Some _ -> ()
+                | None ->
+                    match savedPartialPath with
+                    | Some subPath -> ctx.Items[RouteKey] <- subPath
+                    | None -> ctx.Items.Remove RouteKey |> ignore
 
-            return result
-        }
+                return result
+            }
 
 [<AutoOpen>]
 module Routing =
     let route (path: string) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            if (SubRouting.getNextPartOfPath ctx).Equals path then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                if (SubRouting.getNextPartOfPath ctx).Equals path then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path (case insensitive).
@@ -62,12 +61,13 @@ module Routing =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routeCi (path: string) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            if String.Equals(SubRouting.getNextPartOfPath ctx, path, StringComparison.OrdinalIgnoreCase) then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                if String.Equals(SubRouting.getNextPartOfPath ctx, path, StringComparison.OrdinalIgnoreCase) then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path using Regex (case insensitive).
@@ -77,20 +77,16 @@ module Routing =
     let routeCix (path: string) : HttpHandler =
         let pattern = sprintf "^%s$" path
 
-        let regex =
-            Regex(
-                pattern,
-                RegexOptions.IgnoreCase
-                ||| RegexOptions.Compiled
-            )
+        let regex = Regex(pattern, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
 
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let result = regex.Match(SubRouting.getNextPartOfPath ctx)
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let result = regex.Match(SubRouting.getNextPartOfPath ctx)
 
-            match result.Success with
-            | true -> return! next ctx
-            | false -> return! skipPipeline ()
-        }
+                match result.Success with
+                | true -> return! next ctx
+                | false -> return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path using Regex (case sensitive).
@@ -101,13 +97,14 @@ module Routing =
         let pattern = sprintf "^%s$" path
         let regex = Regex(pattern, RegexOptions.Compiled)
 
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let result = regex.Match(SubRouting.getNextPartOfPath ctx)
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let result = regex.Match(SubRouting.getNextPartOfPath ctx)
 
-            match result.Success with
-            | true -> return! next ctx
-            | false -> return! skipPipeline ()
-        }
+                match result.Success with
+                | true -> return! next ctx
+                | false -> return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path using Regex (case sensitive).
@@ -123,18 +120,17 @@ module Routing =
         let pattern = sprintf "^%s$" path
         let regex = Regex(pattern, RegexOptions.Compiled)
 
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let result = regex.Match(SubRouting.getNextPartOfPath ctx)
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let result = regex.Match(SubRouting.getNextPartOfPath ctx)
 
-            match result.Success with
-            | true ->
-                let args =
-                    result.Groups
-                    |> Seq.map (fun x -> x.Value)
+                match result.Success with
+                | true ->
+                    let args = result.Groups |> Seq.map (fun x -> x.Value)
 
-                return! routeHandler args next ctx
-            | false -> return! skipPipeline ()
-        }
+                    return! routeHandler args next ctx
+                | false -> return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path (case sensitive).
@@ -157,11 +153,12 @@ module Routing =
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routef (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            match tryMatchInput path MatchOptions.Exact (SubRouting.getNextPartOfPath ctx) with
-            | None -> return! skipPipeline ()
-            | Some args -> return! routeHandler args next ctx
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                match tryMatchInput path MatchOptions.Exact (SubRouting.getNextPartOfPath ctx) with
+                | None -> return! skipPipeline ()
+                | Some args -> return! routeHandler args next ctx
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path.
@@ -183,11 +180,12 @@ module Routing =
     /// <param name="ctx">The current <see cref="HttpContext"/>.</param>    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routeCif (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            match tryMatchInput path MatchOptions.IgnoreCaseExact (SubRouting.getNextPartOfPath ctx) with
-            | None -> return! skipPipeline ()
-            | Some args -> return! routeHandler args next ctx
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                match tryMatchInput path MatchOptions.IgnoreCaseExact (SubRouting.getNextPartOfPath ctx) with
+                | None -> return! skipPipeline ()
+                | Some args -> return! routeHandler args next ctx
+            }
 
     // /// <summary>
     // /// Filters an incoming HTTP request based on the request path (case insensitive).
@@ -224,12 +222,13 @@ module Routing =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routeStartsWith (subPath: string) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            if (SubRouting.getNextPartOfPath ctx).StartsWith subPath then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                if (SubRouting.getNextPartOfPath ctx).StartsWith subPath then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the beginning of the request path (case insensitive).
@@ -239,15 +238,13 @@ module Routing =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let routeStartsWithCi (subPath: string) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            if
-                (SubRouting.getNextPartOfPath ctx)
-                    .StartsWith(subPath, StringComparison.OrdinalIgnoreCase)
-            then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                if (SubRouting.getNextPartOfPath ctx).StartsWith(subPath, StringComparison.OrdinalIgnoreCase) then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the beginning of the request path (case sensitive).
@@ -269,16 +266,16 @@ module Routing =
     let routeStartsWithf (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
 
-        let options = {
-            MatchOptions.IgnoreCase = false
-            MatchMode = StartsWith
-        }
+        let options =
+            { MatchOptions.IgnoreCase = false
+              MatchMode = StartsWith }
 
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            match tryMatchInput path options (SubRouting.getNextPartOfPath ctx) with
-            | None -> return! skipPipeline ()
-            | Some args -> return! routeHandler args next ctx
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                match tryMatchInput path options (SubRouting.getNextPartOfPath ctx) with
+                | None -> return! skipPipeline ()
+                | Some args -> return! routeHandler args next ctx
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on the beginning of the request path (case insensitive).
@@ -300,16 +297,16 @@ module Routing =
     let routeStartsWithCif (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
 
-        let options = {
-            MatchOptions.IgnoreCase = true
-            MatchMode = StartsWith
-        }
+        let options =
+            { MatchOptions.IgnoreCase = true
+              MatchMode = StartsWith }
 
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            match tryMatchInput path options (SubRouting.getNextPartOfPath ctx) with
-            | None -> return! skipPipeline ()
-            | Some args -> return! routeHandler args next ctx
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                match tryMatchInput path options (SubRouting.getNextPartOfPath ctx) with
+                | None -> return! skipPipeline ()
+                | Some args -> return! routeHandler args next ctx
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on a part of the request path (case sensitive).
@@ -332,15 +329,16 @@ module Routing =
     /// <param name="ctx">The current http context object.</param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let subRouteCi (path: string) (handler: HttpHandler) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let nextPartOfPath = SubRouting.getNextPartOfPath ctx
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let nextPartOfPath = SubRouting.getNextPartOfPath ctx
 
-            if nextPartOfPath.StartsWith(path, StringComparison.OrdinalIgnoreCase) then
-                let matchedPathFragment = nextPartOfPath.[0 .. path.Length - 1]
-                return! SubRouting.routeWithPartialPath matchedPathFragment handler next ctx
-            else
-                return! skipPipeline ()
-        }
+                if nextPartOfPath.StartsWith(path, StringComparison.OrdinalIgnoreCase) then
+                    let matchedPathFragment = nextPartOfPath.[0 .. path.Length - 1]
+                    return! SubRouting.routeWithPartialPath matchedPathFragment handler next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Filters an incoming HTTP request based on a part of the request path (case sensitive).
@@ -365,25 +363,26 @@ module Routing =
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let subRoutef (path: PrintfFormat<_, _, _, _, 'T>) (routeHandler: 'T -> HttpHandler) : HttpHandler =
         // validateFormat path
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let paramCount = (path.Value.Split '/').Length
-            let subPathParts = (SubRouting.getNextPartOfPath ctx).Split '/'
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let paramCount = (path.Value.Split '/').Length
+                let subPathParts = (SubRouting.getNextPartOfPath ctx).Split '/'
 
-            if paramCount > subPathParts.Length then
-                return! skipPipeline ()
-            else
-                let subPath =
-                    subPathParts
-                    |> Array.take paramCount
-                    |> Array.fold
-                        (fun state elem ->
-                            if String.IsNullOrEmpty elem then
-                                state
-                            else
-                                sprintf "%s/%s" state elem)
-                        ""
+                if paramCount > subPathParts.Length then
+                    return! skipPipeline ()
+                else
+                    let subPath =
+                        subPathParts
+                        |> Array.take paramCount
+                        |> Array.fold
+                            (fun state elem ->
+                                if String.IsNullOrEmpty elem then
+                                    state
+                                else
+                                    sprintf "%s/%s" state elem)
+                            ""
 
-                match tryMatchInput path MatchOptions.Exact subPath with
-                | None -> return! skipPipeline ()
-                | Some args -> return! SubRouting.routeWithPartialPath subPath (routeHandler args) next ctx
-        }
+                    match tryMatchInput path MatchOptions.Exact subPath with
+                    | None -> return! skipPipeline ()
+                    | Some args -> return! SubRouting.routeWithPartialPath subPath (routeHandler args) next ctx
+            }

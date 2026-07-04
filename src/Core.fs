@@ -52,16 +52,17 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A <see cref="HttpFuncResult"/>.</returns>
     let rec private chooseHttpFunc (funcs: HttpFunc list) : HttpFunc =
-        fun (ctx: HttpContext) -> task {
-            match funcs with
-            | [] -> return None
-            | func :: tail ->
-                let! result = func ctx
+        fun (ctx: HttpContext) ->
+            task {
+                match funcs with
+                | [] -> return None
+                | func :: tail ->
+                    let! result = func ctx
 
-                match result with
-                | Some c -> return Some c
-                | None -> return! chooseHttpFunc tail ctx
-        }
+                    match result with
+                    | Some c -> return Some c
+                    | None -> return! chooseHttpFunc tail ctx
+            }
 
     /// <summary>
     /// Iterates through a list of <see cref="HttpHandler"/> functions and returns the result of the first <see cref="HttpHandler"/> of which the outcome is Some HttpContext.
@@ -83,12 +84,13 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let private httpVerb (validate: string -> bool) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            if validate ctx.Request.Method then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                if validate ctx.Request.Method then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     let GET: HttpHandler = httpVerb HttpMethods.IsGet
     let POST: HttpHandler = httpVerb HttpMethods.IsPost
@@ -160,19 +162,20 @@ module Core =
     /// <param name="ctx"></param>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let mustAccept (mimeTypes: string list) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let headers = ctx.Request.GetTypedHeaders()
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let headers = ctx.Request.GetTypedHeaders()
 
-            let accepted =
-                headers.Accept
-                |> Seq.map (fun h -> h.MediaType.Value)
-                |> Seq.exists (fun h -> mimeTypes |> Seq.contains h)
+                let accepted =
+                    headers.Accept
+                    |> Seq.map (fun h -> h.MediaType.Value)
+                    |> Seq.exists (fun h -> mimeTypes |> Seq.contains h)
 
-            if accepted then
-                return! next ctx
-            else
-                return! skipPipeline ()
-        }
+                if accepted then
+                    return! next ctx
+                else
+                    return! skipPipeline ()
+            }
 
     /// <summary>
     /// Redirects to a different location with a `302` or `301` (when permanent) HTTP status code.
@@ -200,10 +203,11 @@ module Core =
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
-        fun (next: HttpFunc) (ctx: HttpContext) -> task {
-            let! model = ctx.BindJsonAsync<'T>()
-            return! f model next ctx
-        }
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let! model = ctx.BindJsonAsync<'T>()
+                return! f model next ctx
+            }
 
     /// <summary>
     /// Writes a byte array to the body of the HTTP response and sets the HTTP Content-Length header accordingly.

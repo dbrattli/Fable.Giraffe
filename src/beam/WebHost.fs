@@ -5,6 +5,8 @@ open System.Threading.Tasks
 open Fable.Core
 open Fable.Beam
 open Fable.Beam.Cowboy
+open Fable.Logging
+
 module Cowboy = Fable.Beam.Cowboy.Cowboy
 module CowboyRouter = Fable.Beam.Cowboy.CowboyRouter
 open Fable.Giraffe.Pipelines
@@ -28,6 +30,7 @@ type IWebHostBuilder =
     abstract Build: int -> unit
 
 type WebHostBuilder() =
+    let loggerFactory = LoggerFactory.Create()
     let services = ServiceCollection()
     let mutable handler: HttpHandler option = None
 
@@ -39,9 +42,7 @@ type WebHostBuilder() =
                         with get () = services
                         and set _ = ()
 
-                    member _.UseGiraffe(h: HttpHandler) =
-                        handler <- Some h
-                }
+                    member _.UseGiraffe(h: HttpHandler) = handler <- Some h }
 
             configureApp.Invoke(app)
             this
@@ -50,24 +51,39 @@ type WebHostBuilder() =
             match handler with
             | None -> failwith "No handler configured. Call UseGiraffe in Configure."
             | Some h ->
-                // Build Cowboy routing dispatch: all paths → middleware module with handler as state
-                let catchAllRoute = CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom h
+                // Build Cowboy routing dispatch: all paths → middleware module with the handler
+                // AND the services collection as state, so the request handler can resolve
+                // services (logger, etc.) off the context via GetService.
+                let catchAllRoute =
+                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (h, services)
+
                 let hostRule = CowboyRouter.hostRule CowboyRouter.wildcard [ catchAllRoute ]
                 let dispatch = CowboyRouter.compile [ hostRule ]
 
                 let transportOpts = Cowboy.tcpPort port
                 let protoOpts = Cowboy.protocolOpts dispatch
 
-                Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts |> ignore
+                Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts
+                |> ignore
+
                 Fable.Beam.Io.format "Starting Giraffe on port ~p~n" [ box port ]
 
     member this.Configure(configureApp: Action<IApplicationBuilder>) =
-        (this :> IWebHostBuilder).Configure(configureApp) |> ignore
+        (this :> IWebHostBuilder).Configure(configureApp)
+        |> ignore
+
         this
 
-    member this.Build(port: int) =
-        (this :> IWebHostBuilder).Build(port)
+    member this.Build(port: int) = (this :> IWebHostBuilder).Build(port)
+
+    member this.ConfigureLogging(configureLogging: Action<ILoggingBuilder>) =
+        Logging.configure loggerFactory services configureLogging
+        this
+
+    /// Log via Fable.Logging's BEAM (logger/OTP) provider — the BEAM counterpart of the
+    /// Python backend's UseStructlog and the JS backend's UseConsoleLogging.
+    member this.UseBeamLogging() =
+        this.ConfigureLogging(fun builder -> builder.AddProvider(new Fable.Logging.Beam.LoggerProvider()))
 
 module Host =
-    let CreateDefaultBuilder (_: string array) =
-        WebHostBuilder()
+    let CreateDefaultBuilder (_: string array) = WebHostBuilder()

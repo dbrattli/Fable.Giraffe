@@ -19,94 +19,6 @@ type SendAsync = Request -> Task<unit>
 type ASGIApp = Func<Scope, ReceiveAsync, SendAsync, Task<unit>>
 
 
-module HeaderNames =
-    [<Literal>]
-    let ContentType = "content-type"
-
-    [<Literal>]
-    let ContentLength = "content-length"
-
-module HttpMethods =
-    [<Literal>]
-    let Head = "head"
-
-    let IsGet (method: string) = method = "GET"
-    let IsPost (method: string) = method = "POST"
-    let IsPatch (method: string) = method = "PATCH"
-    let IsPut (method: string) = method = "PUT"
-    let IsDelete (method: string) = method = "DELETE"
-    let IsHead (method: string) = method = "HEAD"
-    let IsOptions (method: string) = method = "OPTIONS"
-    let IsTrace (method: string) = method = "TRACE"
-    let IsConnect (method: string) = method = "CONNECT"
-
-type HeaderDictionary(headers: Dictionary<string, StringValues>) =
-    new(headers: Dictionary<string, string>) =
-        let dict =
-            headers
-            |> Seq.map (fun (KeyValue (k, v)) -> (k, StringValues v))
-            |> dict
-
-        HeaderDictionary(Dictionary(dict))
-
-    new() = HeaderDictionary(Dictionary<string, StringValues>())
-
-    member x.Item(key: string) = headers[key.ToLower()]
-
-    member x.Add(key: string, value: string) =
-        headers[key.ToLower()] <- StringValues(value)
-
-    member x.Add(key: string, value: StringValues) = headers[key.ToLower()] <- value
-
-    member x.Scoped =
-        headers
-        |> Seq.map (fun (KeyValue (k, v)) -> ResizeArray([ k; String.Join(", ", v.ToArray()) ]))
-        |> ResizeArray
-
-
-type StringSegment(value: string) =
-    member x.Value = value
-
-    override x.ToString() = value
-
-    static member Empty = StringSegment("")
-
-[<AllowNullLiteral>]
-type MediaTypeHeaderValue(value: string) =
-    let parts = value.Split(';')
-    let mediaType = parts[ 0 ].Trim()
-
-    let charset =
-        parts
-        |> Array.tryFind (fun p -> p.Trim().StartsWith("charset="))
-
-    let charset =
-        charset
-        |> Option.map (fun c -> c.Split('=').[1].Trim())
-
-    member x.MediaType = StringSegment(mediaType)
-    member x.Quality = Nullable 1.0
-    member x.Charset = charset
-
-    override x.ToString() = value
-
-type RequestHeaders(headers: ResizeArray<ResizeArray<string>>) =
-    member x.Accept
-        with get () =
-            let found =
-                headers
-                |> Seq.tryFind (fun x -> x[ 0 ].ToLower() = "accept")
-
-            match found with
-            | Some value ->
-                value
-                |> Seq.skip 1
-                |> Seq.map MediaTypeHeaderValue
-                |> ResizeArray
-            | _ -> ResizeArray<MediaTypeHeaderValue>()
-
-        and set (_value: ResizeArray<MediaTypeHeaderValue>) = failwith "Not implemented"
-
 type HttpRequest(scope: Scope, receive: ReceiveAsync) =
     member x.Path: string option = scope["path"] :?> string |> Some
 
@@ -117,14 +29,24 @@ type HttpRequest(scope: Scope, receive: ReceiveAsync) =
     member x.GetTypedHeaders() : RequestHeaders =
         RequestHeaders(scope["headers"] :?> ResizeArray<ResizeArray<string>>)
 
-    member x.GetBodyAsync() = task {
-        let! response = receive ()
-        return response["body"] :?> byte array
-    }
+    member x.GetBodyAsync() =
+        task {
+            let! response = receive ()
+            return response["body"] :?> byte array
+        }
 
     member x.Headers =
-        scope["headers"] :?> Dictionary<string, string>
-        |> HeaderDictionary
+        // scope["headers"] is a ResizeArray<ResizeArray<string>> of [name; value]
+        // pairs (same shape GetTypedHeaders reads) — NOT a Dictionary<string,string>.
+        // Casting to Dictionary here used to throw at runtime.
+        let raw = scope["headers"] :?> ResizeArray<ResizeArray<string>>
+        let dict = Dictionary<string, string>()
+
+        for pair in raw do
+            if pair.Count >= 2 then
+                dict[pair[0]] <- pair[1]
+
+        HeaderDictionary(dict)
 
 type HttpResponse(send: SendAsync) =
     let mutable statusCode = None
@@ -158,21 +80,22 @@ type HttpResponse(send: SendAsync) =
         responseStart["headers"] <- ResizeArray<_>()
         responseBody["body"] <- [||]
 
-    member x.WriteAsync(bytes: byte[]) = task {
-        responseBody["body"] <- bytes
+    member x.WriteAsync(bytes: byte[]) =
+        task {
+            responseBody["body"] <- bytes
 
-        if not x.HasStarted then
-            match statusCode with
-            | Some statusCode -> responseStart["status"] <- toNativeInt statusCode
-            | None ->
-                responseStart["status"] <- toNativeInt 200
-                statusCode <- Some 200
+            if not x.HasStarted then
+                match statusCode with
+                | Some statusCode -> responseStart["status"] <- toNativeInt statusCode
+                | None ->
+                    responseStart["status"] <- toNativeInt 200
+                    statusCode <- Some 200
 
-            do! send responseStart
-            x.HasStarted <- true
+                do! send responseStart
+                x.HasStarted <- true
 
-        do! send responseBody
-    }
+            do! send responseBody
+        }
 
     member x.SetHttpHeader(key: string, value: obj) =
         let headers = responseStart["headers"] :?> ResizeArray<string * obj>
@@ -201,56 +124,40 @@ type HttpContext(scope: Scope, receive: ReceiveAsync, send: SendAsync) =
 
     member _.RequestServices = scope["services"] :?> ServiceCollection
 
-    member ctx.WriteBytesAsync(bytes: byte[]) = task {
-        ctx.SetHttpHeader(HeaderNames.ContentLength, len bytes)
-
-        if ctx.Request.Method <> HttpMethods.Head then
-            do! ctx.Response.WriteAsync(bytes)
-
-        return Some ctx
-    }
-
-    member ctx.SetStatusCode(statusCode: int) = ctx.Response.SetStatusCode(statusCode)
-
-    member ctx.SetHttpHeader(key: string, value: obj) = ctx.Response.SetHttpHeader(key, value)
-
-    member ctx.SetContentType(contentType: string) =
-        ctx.SetHttpHeader(HeaderNames.ContentType, contentType)
-
-    member ctx.ReadBodyFromRequestAsync() : Task<string> = task {
-        let! bytes = ctx.Request.GetBodyAsync()
-        return bytes |> Encoding.UTF8.GetString
-    }
-
-    member inline x.BindJsonAsync<'T>() = task {
-        let! body = x.Request.GetBodyAsync()
-
-        return
-            body
-            |> Encoding.UTF8.GetString
-            |> deserialize
-            |> unbox<'T>
-    }
-
-    member inline x.GetService<'T>() : 'T =
-        let (Singleton service) = x.RequestServices.GetService(typeof<'T>)
-        service :?> 'T
-
-    member x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) = task {
-        let mutable responseHasStarted = false
-
-        let send' (request: Request) = task {
-            if
-                request.ContainsKey("type")
-                && request["type"] :?> string = "http.response.start"
-            then
-                responseHasStarted <- true
-
-            do! send request
+    member ctx.ReadBodyFromRequestAsync() : Task<string> =
+        task {
+            let! bytes = ctx.Request.GetBodyAsync()
+            return bytes |> Encoding.UTF8.GetString
         }
 
-        do! app.Invoke(scope, receive, send')
+    member inline x.BindJsonAsync<'T>() =
+        task {
+            let! body = x.Request.GetBodyAsync()
 
-        if not responseHasStarted then
-            do! next x
-    }
+            return
+                body
+                |> Encoding.UTF8.GetString
+                |> deserialize
+                |> unbox<'T>
+        }
+
+    member x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) =
+        task {
+            let mutable responseHasStarted = false
+
+            let send' (request: Request) =
+                task {
+                    if
+                        request.ContainsKey("type")
+                        && request["type"] :?> string = "http.response.start"
+                    then
+                        responseHasStarted <- true
+
+                    do! send request
+                }
+
+            do! app.Invoke(scope, receive, send')
+
+            if not responseHasStarted then
+                do! next x
+        }

@@ -4,9 +4,14 @@
     <OutputType>Library</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="../shared/Testing.fs" />
+    <Compile Include="TestContext.fs" />
+    <Compile Include="../shared/HandlerTests.fs" />
+    <Compile Include="../shared/RoutingTests.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.1.0" />

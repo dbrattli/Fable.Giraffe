@@ -21,19 +21,15 @@ type WebHostBuilder() =
     let services = ServiceCollection()
     let pipelines = ResizeArray<Func<ASGIApp, ILoggerFactory, ASGIApp>>()
 
-    let notFound =
-        (setStatusCode 404
-         |> HttpHandler.text "Not Found")
-            earlyReturn
+    let notFound = (setStatusCode 404 |> HttpHandler.text "Not Found") earlyReturn
 
     let defaultApp =
-        fun (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) -> task {
-            let! _ =
-                HttpContext(scope, receive, send)
-                |> notFound
+        fun (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) ->
+            task {
+                let! _ = HttpContext(scope, receive, send) |> notFound
 
-            return ()
-        }
+                return ()
+            }
 
     interface IWebHostBuilder with
         member this.Configure(configureApp: Action<IApplicationBuilder>) =
@@ -45,20 +41,13 @@ type WebHostBuilder() =
 
                     member this.ApplicationServices
                         with get () = services
-                        and set _ = ()
-                }
+                        and set _ = () }
 
             configureApp.Invoke(app)
             this
 
         member this.ConfigureLogging(configureLogging: Action<ILoggingBuilder>) =
-            let loggingBuilder = loggerFactory :> ILoggingBuilder
-
-            configureLogging.Invoke(loggingBuilder)
-
-            let logger = loggerFactory.CreateLogger("Giraffe")
-            services.AddSingleton(logger)
-
+            Logging.configure loggerFactory services configureLogging
             this
 
         //member this.WithLoggerFactory (loggerFactory: ILoggerFactory) = { webHost with LoggerFactory = loggerFactory }
@@ -68,11 +57,12 @@ type WebHostBuilder() =
             for pipeline in pipelines |> Seq.rev do
                 app <- pipeline.Invoke(app, loggerFactory)
 
-            Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(fun scope receive send -> task {
-                scope["services"] <- services
+            Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(fun scope receive send ->
+                task {
+                    scope["services"] <- services
 
-                return! app.Invoke(scope, receive, send)
-            })
+                    return! app.Invoke(scope, receive, send)
+                })
 
     member this.ConfigureLogging(configureLogging: Action<ILoggingBuilder>) =
         (this :> IWebHostBuilder).ConfigureLogging(configureLogging)
