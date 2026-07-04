@@ -16,8 +16,8 @@
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
     <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
     <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
-    <!-- Shared ASGI-shaped context, reused from the Python backend (single source of truth) -->
-    <Compile Include="../python/HttpContext.fs" Link="HttpContext.fs" />
+    <!-- Node-native context (wraps http req/res directly; no dependency on other backends) -->
+    <Compile Include="HttpContext.fs" />
     <Compile Include="../Core.fs" Link="Core.fs" />
     <Compile Include="../Routing.fs" Link="Routing.fs" />
     <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />

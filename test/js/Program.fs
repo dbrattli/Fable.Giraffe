@@ -10,20 +10,20 @@ open Fable.Giraffe.Pipelines
 type Model = { Name: string; Age: int }
 
 let echo: HttpHandler =
-    fun next (ctx: HttpContext) -> task {
-        let! body = ctx.ReadBodyFromRequestAsync()
-        return! text body next ctx
-    }
+    fun next (ctx: HttpContext) ->
+        task {
+            let! body = ctx.ReadBodyFromRequestAsync()
+            return! text body next ctx
+        }
 
 let webApp: HttpHandler =
-    choose [
-        route "/ping" |> HttpHandler.text "pong"
+    choose
+        [ route "/ping" |> HttpHandler.text "pong"
 
-        route "/json"
-        |> HttpHandler.json { Name = "Dag"; Age = 53 }
+          route "/json"
+          |> HttpHandler.json { Name = "Dag"; Age = 53 }
 
-        route "/echo" >=> echo
-    ]
+          route "/echo" >=> echo ]
 
 // Build the Connect middleware inside F# (as the real API does) and export it,
 // so the Node smoke test never applies the handler from hand-written JS — that

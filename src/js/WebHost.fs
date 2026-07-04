@@ -33,8 +33,7 @@ type WebHostBuilder() =
                     with get () = services
                     and set _ = ()
 
-                member _.UseGiraffe(h: HttpHandler) = handler <- Some h
-            }
+                member _.UseGiraffe(h: HttpHandler) = handler <- Some h }
 
         configureApp.Invoke(app)
         this
@@ -57,8 +56,7 @@ type WebHostBuilder() =
         Server.toMiddleware this.Handler services
 
     /// Start a zero-dependency Node `http` server on `port`.
-    member this.Run(port: int) =
-        Server.run this.Handler services port
+    member this.Run(port: int) = Server.run this.Handler services port
 
 module Host =
     let CreateDefaultBuilder (_: string array) = WebHostBuilder()
