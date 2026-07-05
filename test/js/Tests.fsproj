@@ -14,7 +14,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="5.1.0" />
+    <PackageReference Include="Fable.Core" Version="5.2.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\js\Fable.Giraffe.Js.fsproj" />
