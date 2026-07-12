@@ -38,7 +38,7 @@
     <PackageReference Include="Fable.Core" Version="5.2.0" />
     <PackageReference Include="Fable.Logging" Version="0.12.6" />
     <PackageReference Include="Fable.Logging.Structlog" Version="0.12.6" />
-    <PackageReference Include="Fable.Python" Version="5.3.0" />
+    <PackageReference Include="Fable.Python" Version="5.4.0" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\pyproject.toml; *.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />
