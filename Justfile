@@ -36,7 +36,7 @@ app: clean
 app-beam: build-beam
     {{fable_beam}} app/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/apps/giraffe_app
     cd {{build_path}} && rebar3 compile
-    erl -pa {{build_path}}/_build/default/lib/*/ebin -noshell -eval "application:ensure_all_started(cowboy)" -eval "program:start()" -eval "receive stop -> ok end"
+    erl -pa {{build_path}}/_build/default/lib/*/ebin -noshell -eval "application:ensure_all_started(cowboy)" -eval "program_program:start()" -eval "receive stop -> ok end"
 
 # Compile the F# library to JavaScript (output: build/js/)
 build-js: clean
