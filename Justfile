@@ -75,7 +75,7 @@ test-beam:
     {{fable}} test/beam --exclude Fable.Core --lang Erlang --outDir {{build_path}}/tests-beam
     cp test/beam/rebar.config {{build_path}}/tests-beam/rebar.config
     cd {{build_path}}/tests-beam && rebar3 compile
-    cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'erlang:halt(main:run())'
+    cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'main:main([])'
 
 pack: build
     dotnet pack -c Release {{src_path}}
