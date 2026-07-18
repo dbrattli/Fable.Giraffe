@@ -1,15 +1,9 @@
 module Fable.Giraffe.Tests.Main
 
-// Python target runner: aggregate every module's `tests` list and run them via the shared
-// runner. Python can block, so we drive the runner task to completion synchronously.
-let private allTests =
-    HandlerTests.tests
-    @ RoutingTests.tests
-    @ RemotingTests.tests
+open type Scriptorium.Quill.Runner
 
-// Python matches the reference behaviour, so nothing is skipped here.
-let private skip: Set<string> = Set.empty
-
+// Python target runner. Quill runs the suite synchronously here (Async.RunSynchronously under
+// the hood), so the returned exit code is the process exit code. Remoting is Python-only.
 [<EntryPoint>]
 let main _ =
-    (Testing.runSuite "python" skip allTests).GetAwaiter().GetResult()
+    runTests [ HandlerTests.tests; RoutingTests.tests; RemotingTests.tests ]
