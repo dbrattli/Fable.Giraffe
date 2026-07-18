@@ -68,12 +68,18 @@ test-python:
 test-js:
     {{fable}} test/js/Tests.fsproj --exclude Fable.Core --lang javascript --outDir {{build_path}}/test-js
     echo '{"type":"module"}' > {{build_path}}/test-js/package.json
-    node test/js/run.mjs
+    node {{build_path}}/test-js/Main.js
 
 # BEAM target: compile the shared suite to Erlang, build with rebar3, run on the BEAM VM
 test-beam:
     {{fable}} test/beam --exclude Fable.Core --lang Erlang --outDir {{build_path}}/tests-beam
     cp test/beam/rebar.config {{build_path}}/tests-beam/rebar.config
+    # Fable emits modules from a package's subdirectory sources (e.g. Parchment's
+    # Sinks/Universal.fs) into fable_modules/<pkg>/<subdir>/src/ rather than the package's own
+    # src/, where rebar3's project_app_dirs never finds them — the module then compiles fine but
+    # is undef at runtime. Flatten them in. Remove once Fable's BEAM output layout is fixed.
+    find {{build_path}}/tests-beam/fable_modules -mindepth 4 -path '*/src/*.erl' \
+        -exec sh -c 'for f; do cp "$f" "$(echo "$f" | sed -E "s#(fable_modules/[^/]+)/.*/src/#\1/src/#")"; done' _ {} +
     cd {{build_path}}/tests-beam && rebar3 compile
     cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'main:main([])'
 

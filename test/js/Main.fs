@@ -1,18 +1,10 @@
 module Fable.Giraffe.Tests.Main
 
-open System.Threading.Tasks
+open type Scriptorium.Quill.Runner
 
-// JS/Node runner. Tests compile to Promises here, so the shared runner awaits each; `run`
-// returns that Promise of the exit code and run.mjs propagates it. Remoting is Python-only.
-let private allTests = HandlerTests.tests @ RoutingTests.tests
-
-// Known JS-target divergences, kept visible as SKIP rather than silently dropped:
-//  * JSON formatting — JS `JSON.stringify` is compact; Python's json.dumps adds ", "/": "
-//    spacing. Tracked under the cross-target JSON-parity gap.
-//  * routef %O (Guid) — FormatExpressions Guid matching returns 404 on the JS target.
-let private skip =
-    set
-        [ "test GET \"/json\" returns json object"
-          "test routef: GET \"/foo/%O/bar/%O\" returns \"Guid1: ..., Guid2: ...\"" ]
-
-let run () : Task<int> = Testing.runSuite "js" skip allTests
+// JS/Node runner. On this target Quill cannot block, so `runTests` returns 0 immediately and
+// chains `process.exit` onto the resolved promise itself — the value returned from here is
+// ignored, and no wrapper script is needed. Remoting is Python-only.
+[<EntryPoint>]
+let main _ =
+    runTests [ HandlerTests.tests; RoutingTests.tests ]

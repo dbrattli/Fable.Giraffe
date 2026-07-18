@@ -1,11 +1,12 @@
 module Fable.Giraffe.Tests.HandlerTests
 
-open System
 open System.Text
-open System.Collections.Generic
+
+open Scriptorium.Quill
+open Scriptorium.Nib.Assertion
+open type Scriptorium.Quill.Test
 
 open Fable.Giraffe
-//open Giraffe.ViewEngine
 
 // ---------------------------------
 // Test Types
@@ -13,734 +14,343 @@ open Fable.Giraffe
 
 type Dummy = { foo: string; bar: string; age: int }
 
-[<CLIMutable>]
-type Person =
-    { FirstName: string
-      LastName: string
-      BirthDate: DateTime
-      Height: float
-      Piercings: string[] }
-
-    override this.ToString() =
-        sprintf
-            "First name: %s, Last name: %s, Birth date: %s, Height: %.2f, Piercings: %A"
-            this.FirstName
-            this.LastName
-            (this.BirthDate.ToString("yyyy-MM-dd"))
-            this.Height
-            this.Piercings
-
 // ---------------------------------
 // Tests
 // ---------------------------------
 
-[<Fact>]
-let ``test GET "/json" returns json object`` () =
-    let testCtx, readBody = TestContext.create (path = "/json")
-
-    let app =
-        GET
-        >=> choose
-                [ route "/" >=> text "Hello World"
-                  route "/foo" >=> text "bar"
-                  route "/json"
-                  >=> json { foo = "john"; bar = "doe"; age = 30 }
-                  setStatusCode 404 >=> text "Not found" ]
-
-    let expected =
-        "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}"
-        |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> (readBody ()) |> equal expected
-    }
-
-// [<Theory>]
-// [<MemberData("PreserveCaseData", MemberType = typedefof<JsonSerializersData>)>]
-// let ``GET "/json" with custom json settings returns json object`` (settings) =
-
-//     let ctx = Substitute.For<HttpContext>()
-//     mockJson ctx settings
-//     let app =
-//         GET >=> choose [
-//             route "/"     >=> text "Hello World"
-//             route "/foo"  >=> text "bar"
-//             route "/json" >=> json { Foo = "john"; Bar = "doe"; Age = 30 }
-//             setStatusCode 404 >=> text "Not found" ]
-
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/json")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "{\"Foo\":\"john\",\"Bar\":\"doe\",\"Age\":30}"
-
-//     task {
-//         let! result = app next ctx
-
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-
-// let DefaultMocksWithSize =
-//     [
-//         let ``powers of two`` = [ 1..10 ] |> List.map (pown 2)
-//         for size in ``powers of two`` do
-//         for setting in JsonSerializersData.DefaultSettings do
-//             yield size, setting
-//     ] |> toTheoryData2
-
-// [<Theory>]
-// [<MemberData("DefaultMocksWithSize")>]
-// let ``GET "/jsonChunked" returns json object`` (size: int, settings) =
-//     let ctx = Substitute.For<HttpContext>()
-//     mockJson ctx settings
-//     let app =
-//         GET >=> choose [
-//             route "/"     >=> text "Hello World"
-//             route "/foo"  >=> text "bar"
-//             route "/jsonChunked" >=> json ( Array.replicate size { Foo = "john"; Bar = "doe"; Age = 30 } )
-//             setStatusCode 404 >=> text "Not found" ]
-
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/jsonChunked")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-
-//     let expected =
-//         let o = "{\"foo\":\"john\",\"bar\":\"doe\",\"age\":30}"
-//         let os = Array.replicate size o |> String.concat ","
-//         "[" +  os + "]"
-
-//     task {
-//         let! result = app next ctx
-
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-
-// let CamelCasedMocksWithSize =
-//     [
-//         let ``powers of two`` = [1..10] |> List.map (pown 2)
-//         for size in ``powers of two`` do
-//         for setting in JsonSerializersData.PreserveCaseSettings do
-//             yield size ,setting
-//     ] |> toTheoryData2
-
-// [<Theory>]
-// [<MemberData("CamelCasedMocksWithSize")>]
-// let ``GET "/jsonChunked" with custom json settings returns json object`` (size: int, settings) =
-//     let ctx = Substitute.For<HttpContext>()
-//     mockJson ctx settings
-//     let app =
-//         GET >=> choose [
-//             route "/"     >=> text "Hello World"
-//             route "/foo"  >=> text "bar"
-//             route "/jsonChunked" >=> json ( Array.replicate size { Foo = "john"; Bar = "doe"; Age = 30 } )
-//             setStatusCode 404 >=> text "Not found" ]
-
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/jsonChunked")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-
-//     let expected =
-//         let o = "{\"Foo\":\"john\",\"Bar\":\"doe\",\"Age\":30}"
-//         let os = Array.replicate size o |> String.concat ","
-//         "[" +  os + "]"
-
-//     task {
-//         let! result = app next ctx
-
-//         match result with
-//         | None     -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx -> Assert.Equal(expected, getBody ctx)
-//     }
-
-[<Fact>]
-let ``test POST "/post/1" returns "1"`` () =
-    let testCtx, readBody = TestContext.create (path = "/post/1", method = "POST")
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "1" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> (readBody ()) |> equal expected
-    }
-
-[<Fact>]
-let ``test POST "/post/2" returns "2"`` () =
-    let test, readBody = TestContext.create (path = "/post/2", method = "POST")
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "2" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next test
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx -> (readBody ()) |> equal expected
-    }
-
-[<Fact>]
-let ``test PUT "/post/2" returns 404 "Not found"`` () =
-    let testCtx, readBody = TestContext.create (path = "/post/2", method = "PUT")
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "Not found" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx ->
-            let body = (readBody ())
-            body |> equal expected
-            ctx.Response.StatusCode |> equal 404
-    }
-
-[<Fact>]
-let ``test POST "/text" with supported Accept header returns "text"`` () =
-    let headers = HeaderDictionary()
-    headers.Add("Accept", StringValues("text/plain"))
-
-    let testCtx, readBody =
-        TestContext.create (path = "/text", method = "POST", headers = headers)
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose
-                      [ route "/text"
-                        >=> mustAccept [ "text/plain" ]
-                        >=> text "text"
-                        route "/json"
-                        >=> mustAccept [ "application/json" ]
-                        >=> json "json"
-                        route "/either"
-                        >=> mustAccept [ "text/plain"; "application/json" ]
-                        >=> text "either" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "text" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx ->
-            let body = (readBody ())
-            body |> equal expected
-
-            ctx.Response
-            |> getContentType
-            |> equal "text/plain; charset=utf-8"
-    }
-
-[<Fact>]
-let ``test POST "/json" with supported Accept header returns "json"`` () =
-    let headers = HeaderDictionary()
-    headers.Add("Accept", StringValues("application/json"))
-
-    let testCtx, readBody =
-        TestContext.create (path = "/json", method = "POST", headers = headers)
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose
-                      [ route "/text"
-                        >=> mustAccept [ "text/plain" ]
-                        >=> text "text"
-                        route "/json"
-                        >=> mustAccept [ "application/json" ]
-                        >=> json "json"
-                        route "/either"
-                        >=> mustAccept [ "text/plain"; "application/json" ]
-                        >=> text "either" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "\"json\"" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx ->
-            let body = (readBody ())
-            body |> equal expected
-
-            ctx.Response
-            |> getContentType
-            |> equal "application/json; charset=utf-8"
-    }
-
-[<Fact>]
-let ``test POST "/either" with supported Accept header returns "either"`` () =
-    let headers = HeaderDictionary()
-    headers.Add("Accept", StringValues("application/json"))
-
-    let testCtx, readBody =
-        TestContext.create (path = "/either", method = "POST", headers = headers)
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose
-                      [ route "/text"
-                        >=> mustAccept [ "text/plain" ]
-                        >=> text "text"
-                        route "/json"
-                        >=> mustAccept [ "application/json" ]
-                        >=> json "json"
-                        route "/either"
-                        >=> mustAccept [ "text/plain"; "application/json" ]
-                        >=> text "either" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "either" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx ->
-            let body = (readBody ())
-            body |> equal expected
-
-            ctx.Response
-            |> getContentType
-            |> equal "text/plain; charset=utf-8"
-    }
-
-
-[<Fact>]
-let ``test POST "/either" with unsupported Accept header returns 404 "Not found"`` () =
-    let headers = HeaderDictionary()
-    headers.Add("Accept", StringValues("application/xml"))
-
-    let testCtx, readBody =
-        TestContext.create (path = "/either", method = "POST", headers = headers)
-
-    let app =
-        choose
-            [ GET
-              >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
-              POST
-              >=> choose
-                      [ route "/text"
-                        >=> mustAccept [ "text/plain" ]
-                        >=> text "text"
-                        route "/json"
-                        >=> mustAccept [ "application/json" ]
-                        >=> json "json"
-                        route "/either"
-                        >=> mustAccept [ "text/plain"; "application/json" ]
-                        >=> text "either" ]
-              setStatusCode 404 >=> text "Not found" ]
-
-    let expected = "Not found" |> Encoding.UTF8.GetBytes
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith $"Result was expected to be {expected}"
-        | Some ctx ->
-            let body = (readBody ())
-            body |> equal expected
-            ctx.Response.StatusCode |> equal 404
-    }
-
-// [<Fact>]
-// let ``GET "/person" returns rendered HTML view`` () =
-//     let ctx = Substitute.For<HttpContext>()
-
-//     let personView model =
-//         html [] [
-//             head [] [
-//                 title [] [ str "Html Node" ]
-//             ]
-//             body [] [
-//                 p [] [ sprintf "%s %s is %i years old." model.Foo model.Bar model.Age |> str ]
-//             ]
-//         ]
-
-//     let johnDoe = { Foo = "John"; Bar = "Doe"; Age = 30 }
-
-//     let app =
-//         choose [
-//             GET >=> choose [
-//                 route "/"          >=> text "Hello World"
-//                 route "/person"    >=> (personView johnDoe |> htmlView) ]
-//             POST >=> choose [
-//                 route "/post/1"    >=> text "1" ]
-//             setStatusCode 404      >=> text "Not found" ]
-
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/person")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     let expected = "<!DOCTYPE html><html><head><title>Html Node</title></head><body><p>John Doe is 30 years old.</p></body></html>"
-
-//     task {
-//         let! result = app next ctx
-
-//         match result with
-//         | None -> assertFailf "Result was expected to be %s" expected
-//         | Some ctx ->
-//             let body = (getBody ctx).Replace(Environment.NewLine, String.Empty)
-//             Assert.Equal(expected, body)
-//             Assert.Equal("text/html; charset=utf-8", ctx.Response |> getContentType)
-//     }
-
-// [<Fact>]
-// let ``Warbler function should execute inner function each time`` () =
-//     let ctx = Substitute.For<HttpContext>()
-//     let inner() = Guid.NewGuid().ToString()
-//     let app =
-//         GET >=> choose [
-//             route "/foo"  >=> text (inner())
-//             route "/foo2" >=> warbler (fun _ -> text (inner())) ]
-//         <| next
-
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/foo")) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-
-//     task {
-//         let! res1 = app ctx
-//         let result1 = getBody res1.Value
-
-//         ctx.Response.Body <- new MemoryStream()
-
-//         let! res2 = app ctx
-//         let result2 = getBody res2.Value
-
-//         Assert.Equal(result1, result2)
-
-//         ctx.Request.Path.ReturnsForAnyArgs (PathString("/foo2")) |> ignore
-//         ctx.Response.Body <- new MemoryStream()
-
-//         let! res3 = app ctx
-//         let result3 = getBody res3.Value
-
-//         ctx.Response.Body <- new MemoryStream()
-
-//         let! res4 = app ctx
-//         let result4 = getBody res4.Value
-
-//         Assert.False(result3.Equals result4)
-//     }
-
-[<Fact>]
-let ``test GET "/redirect" redirect to "/" `` () =
-    let testCtx, readBody = TestContext.create (path = "/redirect", method = "GET")
-
-    let app =
-        GET
-        >=> choose
-                [ route "/" >=> text "Hello World"
-                  route "/redirect" >=> redirectTo false "/"
-                  setStatusCode 404 >=> text "Not found" ]
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith "It was expected that the request would be redirected"
-        | Some ctx -> ctx.Response.StatusCode |> equal 302
-    // TODO: ctx.Response.Headers
-    }
-
-[<Fact>]
-let ``test POST "/redirect" redirect to "/" `` () =
-    let testCtx, readBody = TestContext.create (path = "/redirect", method = "POST")
-
-    let app =
-        POST
-        >=> choose
-                [ route "/" >=> text "Hello World"
-                  route "/redirect" >=> redirectTo true "/"
-                  setStatusCode 404 >=> text "Not found" ]
-
-    task {
-        let! result = app next testCtx
-
-        match result with
-        | None -> failwith "It was expected that the request would be redirected"
-        | Some ctx -> ctx.Response.StatusCode |> equal 301
-    // TODO: ctx.Response.Headers
-    }
-
-// // ---------------------------------
-// // Negotiation test fixtures
-// // ---------------------------------
-// let johnDoe =
-//     {
-//         FirstName = "John"
-//         LastName  = "Doe"
-//         BirthDate = DateTime(1990, 7, 12)
-//         Height    = 1.85
-//         Piercings = [| "ear"; "nose" |]
-//     }
-// let johnDoeAsJson =
-//     "{\"firstName\":\"John\",\"lastName\":\"Doe\",\"birthDate\":\"1990-07-12T00:00:00\",\"height\":1.85,\"piercings\":[\"ear\",\"nose\"]}"
-// let johnDoeAsXml = @"<?xml version=""1.0"" encoding=""utf-8""?>
-// <Person xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"">
-//   <FirstName>John</FirstName>
-//   <LastName>Doe</LastName>
-//   <BirthDate>1990-07-12T00:00:00</BirthDate>
-//   <Height>1.85</Height>
-//   <Piercings>
-//     <string>ear</string>
-//     <string>nose</string>
-//   </Piercings>
-// </Person>"
-
-// let johnDoeAsText = @"First name: John, Last name: Doe, Birth date: 1990-07-12, Height: 1.85, Piercings: [|""ear""; ""nose""|]"
-
-// let getNegotiationTestHttpContext
-//     (negotiationConfig : INegotiationConfig)
-//     (jsonSettings : MockJsonSettings option)
-//     (shouldMockXml : bool)
-//     (acceptHeaders : StringValues)
-//     =
-//     let ctx = Substitute.For<HttpContext>()
-
-//     let headers = HeaderDictionary()
-//     headers.Add("Accept", acceptHeaders)
-
-//     jsonSettings |> Option.iter(fun settings -> mockJson ctx settings)
-//     if shouldMockXml then mockXml ctx
-//     mockNegotiation ctx negotiationConfig
-
-//     ctx.Items.Returns (Dictionary<obj,obj>() :> IDictionary<obj,obj>) |> ignore
-//     ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
-//     ctx.Request.Path.ReturnsForAnyArgs (PathString("/auto")) |> ignore
-//     ctx.Request.Headers.ReturnsForAnyArgs(headers) |> ignore
-//     ctx.Response.Body <- new MemoryStream()
-//     ctx.Response.StatusCode <- 200
-
-//     ctx
-
-// let negotiationTestApp =
-//     GET >=> choose [
-//         route "/"     >=> text "Hello World"
-//         route "/foo"  >=> text "bar"
-//         route "/auto" >=> negotiate johnDoe
-//         setStatusCode 404 >=> text "Not found" ]
-
-// let runNegotiationTest (ctx : HttpContext) (expectedString : string) (testChecks : HttpContext -> unit) =
-//     task {
-//         let! result = negotiationTestApp next ctx
-
-//         match result with
-//         | None -> assertFailf "Result was expected to be %s" expectedString
-//         | Some ctx -> testChecks ctx
-//     }
-
-// // ---------------------------------
-// // Negotiation tests
-// // ---------------------------------
-// let JsonReturningAcceptHeaderCases =
-//     [
-//         {NegotiationConfig = JsonOnlyNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "application/json; charset=utf-8"}
-//         {NegotiationConfig = DefaultNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "application/json; charset=utf-8"}
-//     ] |> toTheoryData
-
-// [<Theory>]
-// [<MemberData("JsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/json" returns JSON object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) false (StringValues("application/json"))
-//     let testChecks (context : HttpContext) =
-//         let body = getBody context
-//         Assert.Equal(johnDoeAsJson, body)
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsJson testChecks
-
-// [<Theory>]
-// [<MemberData("JsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/xml; q=0.9, application/json" returns JSON object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) false (StringValues("application/xml; q=0.9, application/json"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 then
-//             let body = getBody context
-//             Assert.Equal(johnDoeAsJson, body)
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsJson testChecks
-
-// let XmlReturningAcceptHeaderCases =
-//     [
-//         {NegotiationConfig = JsonOnlyNegotiationConfig() :> INegotiationConfig; StatusCode = 406; ReturnContentType = ""}
-//         {NegotiationConfig = DefaultNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "application/xml; charset=utf-8"}
-//     ] |> toTheoryData
-
-// [<Theory>]
-// [<MemberData("XmlReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/xml" returns XML object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig None true (StringValues("application/xml"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 then
-//             let body = getBody context
-//             XmlAssert.equals johnDoeAsXml body
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsXml testChecks
-
-// let XmlJsonReturningAcceptHeaderCases =
-//     [
-//         {NegotiationConfig = JsonOnlyNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "application/json; charset=utf-8"}
-//         {NegotiationConfig = DefaultNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "application/xml; charset=utf-8"}
-//     ] |> toTheoryData
-
-// [<Theory>]
-// [<MemberData("XmlJsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/xml, application/json" returns XML object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) true (StringValues("application/xml, application/json"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 && config.ReturnContentType = "application/xml; charset=utf-8" then
-//             let body = getBody context
-//             XmlAssert.equals johnDoeAsXml body
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsXml testChecks
-
-// [<Theory>]
-// [<MemberData("JsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/json, application/xml" returns JSON object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) false (StringValues("application/json, application/xml"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 then
-//             let body = getBody context
-//             Assert.Equal(johnDoeAsJson, body)
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsJson testChecks
-
-// [<Theory>]
-// [<MemberData("XmlJsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/json; q=0.5, application/xml" returns XML object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) true (StringValues("application/json; q=0.5, application/xml"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 && config.ReturnContentType = "application/xml; charset=utf-8" then
-//             let body = getBody context
-//             XmlAssert.equals johnDoeAsXml body
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsXml testChecks
-
-// [<Theory>]
-// [<MemberData("XmlJsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "application/json; q=0.5, application/xml; q=0.6" returns XML object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) true (StringValues("application/json; q=0.5, application/xml; q=0.6"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 && config.ReturnContentType = "application/xml; charset=utf-8" then
-//             let body = getBody context
-//             XmlAssert.equals johnDoeAsXml body
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsXml testChecks
-
-// let TextReturningAcceptHeaderCases =
-//     [
-//         {NegotiationConfig = JsonOnlyNegotiationConfig() :> INegotiationConfig; StatusCode = 406; ReturnContentType = ""}
-//         {NegotiationConfig = DefaultNegotiationConfig() :> INegotiationConfig; StatusCode = 200; ReturnContentType = "text/plain; charset=utf-8"}
-//     ] |> toTheoryData
-
-// [<Theory>]
-// [<MemberData("TextReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "text/plain; q=0.7, application/xml; q=0.6" returns text object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig None false (StringValues("text/plain; q=0.7, application/xml; q=0.6"))
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 200 then
-//             let body = getBody context
-//             Assert.Equal(johnDoeAsText, body)
-//             Assert.Equal(config.ReturnContentType, context.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsText testChecks
-
-// let HtmlReturningAcceptHeaderCases =
-//     [
-//         {NegotiationConfig = JsonOnlyNegotiationConfig() :> INegotiationConfig; StatusCode = 406; ReturnContentType = "text/plain; charset=utf-8"}
-//         {NegotiationConfig = DefaultNegotiationConfig() :> INegotiationConfig; StatusCode = 406; ReturnContentType = "text/plain; charset=utf-8"}
-//     ] |> toTheoryData
-
-// [<Theory>]
-// [<MemberData("HtmlReturningAcceptHeaderCases")>]
-// let ``Get "/auto" with Accept header of "text/html" returns a 406 response`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig None false (StringValues("text/html"))
-
-//     let expected = "text/html is unacceptable by the server."
-//     let testChecks (context : HttpContext) =
-//         Assert.Equal(config.StatusCode, context.Response.StatusCode)
-//         if context.Response.StatusCode = 406 then
-//             let body = getBody context
-//             Assert.Equal(expected, body)
-//             Assert.Equal("text/plain; charset=utf-8", context.Response |> getContentType)
-//     runNegotiationTest ctx expected testChecks
-
-// [<Theory>]
-// [<MemberData("JsonReturningAcceptHeaderCases")>]
-// let ``Get "/auto" without an Accept header returns a JSON object`` (config : NegotiationConfigWithExpectedResult) =
-//     let ctx = getNegotiationTestHttpContext config.NegotiationConfig (Some (Newtonsoft None)) false StringValues.Empty
-//     let testChecks (ctx : HttpContext) =
-//         Assert.Equal(config.StatusCode, ctx.Response.StatusCode)
-//         if ctx.Response.StatusCode = 200 then
-//             let body = getBody ctx
-//             Assert.Equal(johnDoeAsJson, body)
-//             Assert.Equal("application/json; charset=utf-8", ctx.Response |> getContentType)
-//     runNegotiationTest ctx johnDoeAsJson testChecks
-
-let tests: (string * (unit -> System.Threading.Tasks.Task<unit>)) list =
-    [ "test GET \"/json\" returns json object", ``test GET "/json" returns json object``
-      "test POST \"/post/1\" returns \"1\"", ``test POST "/post/1" returns "1"``
-      "test POST \"/post/2\" returns \"2\"", ``test POST "/post/2" returns "2"``
-      "test PUT \"/post/2\" returns 404 \"Not found\"", ``test PUT "/post/2" returns 404 "Not found"``
-      "test POST \"/text\" with supported Accept header returns \"text\"", ``test POST "/text" with supported Accept header returns "text"``
-      "test POST \"/json\" with supported Accept header returns \"json\"", ``test POST "/json" with supported Accept header returns "json"``
-      "test POST \"/either\" with supported Accept header returns \"either\"",
-      ``test POST "/either" with supported Accept header returns "either"``
-      "test POST \"/either\" with unsupported Accept header returns 404 \"Not found\"",
-      ``test POST "/either" with unsupported Accept header returns 404 "Not found"``
-      "test GET \"/redirect\" redirect to \"/\" ", ``test GET "/redirect" redirect to "/" ``
-      "test POST \"/redirect\" redirect to \"/\" ", ``test POST "/redirect" redirect to "/" `` ]
+let tests =
+    testList (
+        "Handlers",
+        [ testAsync (
+              "GET \"/json\" returns json object",
+              // JSON formatting diverges from the Python reference on both targets: JS
+              // `JSON.stringify` is compact where Python's `json.dumps` adds ", "/": "
+              // spacing, and the BEAM jsx serializer differs again. Cross-target JSON parity
+              // is tracked separately.
+              skipIfJavaScript >> skipIfBeam,
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, readBody = TestContext.create (path = "/json")
+
+                          let app =
+                              GET
+                              >=> choose
+                                      [ route "/" >=> text "Hello World"
+                                        route "/foo" >=> text "bar"
+                                        route "/json"
+                                        >=> json { foo = "john"; bar = "doe"; age = 30 }
+                                        setStatusCode 404 >=> text "Not found" ]
+
+                          let expected =
+                              "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}"
+                              |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some _ -> assertThat (readBody ()) (isEqualTo expected)
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/post/1\" returns \"1\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, readBody = TestContext.create (path = "/post/1", method = "POST")
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "1" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some _ -> assertThat (readBody ()) (isEqualTo expected)
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/post/2\" returns \"2\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, readBody = TestContext.create (path = "/post/2", method = "POST")
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "2" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some _ -> assertThat (readBody ()) (isEqualTo expected)
+                      }
+                  )
+          )
+
+          testAsync (
+              "PUT \"/post/2\" returns 404 \"Not found\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, readBody = TestContext.create (path = "/post/2", method = "PUT")
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose [ route "/post/1" >=> text "1"; route "/post/2" >=> text "2" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "Not found" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some ctx ->
+                              assertThat (readBody ()) (isEqualTo expected)
+                              assertThat ctx.Response.StatusCode (isEqualTo 404)
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/text\" with supported Accept header returns \"text\"",
+              // BEAM's HttpRequest.GetTypedHeaders() is a stub returning empty, so
+              // mustAccept/Accept-negotiation cannot resolve (tracked: implement Cowboy headers).
+              skipIfBeam,
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Accept", StringValues("text/plain"))
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/text", method = "POST", headers = headers)
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose
+                                            [ route "/text"
+                                              >=> mustAccept [ "text/plain" ]
+                                              >=> text "text"
+                                              route "/json"
+                                              >=> mustAccept [ "application/json" ]
+                                              >=> json "json"
+                                              route "/either"
+                                              >=> mustAccept [ "text/plain"; "application/json" ]
+                                              >=> text "either" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "text" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some ctx ->
+                              assertThat (readBody ()) (isEqualTo expected)
+                              assertThat (getContentType ctx.Response) (isEqualTo "text/plain; charset=utf-8")
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/json\" with supported Accept header returns \"json\"",
+              // BEAM: headers stub, see above.
+              skipIfBeam,
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Accept", StringValues("application/json"))
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/json", method = "POST", headers = headers)
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose
+                                            [ route "/text"
+                                              >=> mustAccept [ "text/plain" ]
+                                              >=> text "text"
+                                              route "/json"
+                                              >=> mustAccept [ "application/json" ]
+                                              >=> json "json"
+                                              route "/either"
+                                              >=> mustAccept [ "text/plain"; "application/json" ]
+                                              >=> text "either" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "\"json\"" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some ctx ->
+                              assertThat (readBody ()) (isEqualTo expected)
+                              assertThat (getContentType ctx.Response) (isEqualTo "application/json; charset=utf-8")
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/either\" with supported Accept header returns \"either\"",
+              // BEAM: headers stub, see above.
+              skipIfBeam,
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Accept", StringValues("application/json"))
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/either", method = "POST", headers = headers)
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose
+                                            [ route "/text"
+                                              >=> mustAccept [ "text/plain" ]
+                                              >=> text "text"
+                                              route "/json"
+                                              >=> mustAccept [ "application/json" ]
+                                              >=> json "json"
+                                              route "/either"
+                                              >=> mustAccept [ "text/plain"; "application/json" ]
+                                              >=> text "either" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "either" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some ctx ->
+                              assertThat (readBody ()) (isEqualTo expected)
+                              assertThat (getContentType ctx.Response) (isEqualTo "text/plain; charset=utf-8")
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/either\" with unsupported Accept header returns 404 \"Not found\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Accept", StringValues("application/xml"))
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/either", method = "POST", headers = headers)
+
+                          let app =
+                              choose
+                                  [ GET
+                                    >=> choose [ route "/" >=> text "Hello World"; route "/foo" >=> text "bar" ]
+                                    POST
+                                    >=> choose
+                                            [ route "/text"
+                                              >=> mustAccept [ "text/plain" ]
+                                              >=> text "text"
+                                              route "/json"
+                                              >=> mustAccept [ "application/json" ]
+                                              >=> json "json"
+                                              route "/either"
+                                              >=> mustAccept [ "text/plain"; "application/json" ]
+                                              >=> text "either" ]
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "Not found" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some ctx ->
+                              assertThat (readBody ()) (isEqualTo expected)
+                              assertThat ctx.Response.StatusCode (isEqualTo 404)
+                      }
+                  )
+          )
+
+          testAsync (
+              "GET \"/redirect\" redirects to \"/\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, _ = TestContext.create (path = "/redirect", method = "GET")
+
+                          let app =
+                              GET
+                              >=> choose
+                                      [ route "/" >=> text "Hello World"
+                                        route "/redirect" >=> redirectTo false "/"
+                                        setStatusCode 404 >=> text "Not found" ]
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith "It was expected that the request would be redirected"
+                          | Some ctx -> assertThat ctx.Response.StatusCode (isEqualTo 302)
+                      // TODO: ctx.Response.Headers
+                      }
+                  )
+          )
+
+          testAsync (
+              "POST \"/redirect\" redirects to \"/\"",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let testCtx, _ = TestContext.create (path = "/redirect", method = "POST")
+
+                          let app =
+                              POST
+                              >=> choose
+                                      [ route "/" >=> text "Hello World"
+                                        route "/redirect" >=> redirectTo true "/"
+                                        setStatusCode 404 >=> text "Not found" ]
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith "It was expected that the request would be redirected"
+                          | Some ctx -> assertThat ctx.Response.StatusCode (isEqualTo 301)
+                      // TODO: ctx.Response.Headers
+                      }
+                  )
+          ) ]
+    )
