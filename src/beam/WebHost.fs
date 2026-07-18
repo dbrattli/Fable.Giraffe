@@ -16,9 +16,12 @@ module CowboyFFI =
     [<Emit("http")>]
     let httpAtom: Atom = nativeOnly
 
-    /// The Erlang module atom implementing the cowboy_handler behaviour
-    /// (Middleware.fs compiles to the `middleware` module).
-    [<Emit("middleware")>]
+    /// The Erlang module atom implementing the cowboy_handler behaviour.
+    /// Fable >= 5.8 qualifies generated BEAM module names with the source path inside the
+    /// assembly, so src/beam/Middleware.fs compiles to `src_beam_middleware` rather than
+    /// `middleware`. This atom is hand-written, so it has to track that name: move or rename
+    /// Middleware.fs and this must change with it, or Cowboy fails with `undef` on init/2.
+    [<Emit("src_beam_middleware")>]
     let middlewareAtom: Atom = nativeOnly
 
 type IApplicationBuilder =
