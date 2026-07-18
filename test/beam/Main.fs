@@ -28,7 +28,12 @@ let private skip =
           "test routef: GET \"/foo/%u/bar/%u\" returns \"Id1: ..., Id2: ...\""
           "test routef: GET \"/foo/bar/baz/qux\" returns 404 \"Not found\"" ]
 
-let run () : int =
+// Fable >= 5.8 namespaces generated BEAM modules (main -> fable_giraffe_tests_beam_main) and
+// emits a `main.erl` shim that dispatches to [<EntryPoint>] and calls erlang:halt with its
+// result. Using the entry point rather than a conventionally-named `run/0` keeps the runner
+// findable across Fable versions and gets exit-code propagation for free.
+[<EntryPoint>]
+let main _ : int =
     Testing.runSuite "beam" skip allTests
     |> taskToAsync
     |> Async.RunSynchronously
