@@ -8,7 +8,7 @@ dev := "false"
 fable := if dev == "true" { "dotnet run --project ../Fable/src/Fable.Cli --" } else { "dotnet fable" }
 
 # BEAM compiler: use local Fable checkout when dev=true, otherwise use dotnet fable
-fable_beam := if dev == "true" { "dotnet run --project ../fable/main/src/Fable.Cli --" } else { "dotnet fable" }
+fable_beam := if dev == "true" { "dotnet run --project ../Fable/src/Fable.Cli --" } else { "dotnet fable" }
 
 default:
     @just --list
