@@ -78,7 +78,9 @@ test-beam:
     cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'main:main([])'
 
 pack: build
-    dotnet pack -c Release {{src_path}}
+    dotnet pack -c Release src/python
+    dotnet pack -c Release src/js
+    dotnet pack -c Release src/beam
 
 format:
     dotnet fantomas src
@@ -88,10 +90,12 @@ setup:
     dotnet tool restore
     uv sync
 
-# Create NuGet packages with specific version (used in CI)
+# Create NuGet packages with specific version (used in CI) — Python, JS and BEAM
 pack-version version:
-    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} {{src_path}}
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/python
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/js
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/beam
 
-# Run EasyBuild.ShipIt for release management
+# Run EasyBuild.ShipIt for release management (opens/updates the release PR)
 shipit *args:
-    dotnet shipit --pre-release rc {{args}}
+    dotnet shipit {{args}}

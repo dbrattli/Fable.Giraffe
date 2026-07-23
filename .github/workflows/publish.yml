@@ -6,9 +6,38 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
+  shipit-pr:
+    name: ShipIt - Pull Request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: "!startsWith(github.event.head_commit.message, 'chore: release ')"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.x
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+
+      - name: Install tools
+        run: dotnet tool restore
+
+      - name: ShipIt (Pull Request)
+        run: just shipit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   publish:
+    name: Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: "startsWith(github.event.head_commit.message, 'chore: release ')"
