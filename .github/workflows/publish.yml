@@ -3,6 +3,14 @@ name: Publish NuGet
 on:
   push:
     branches: [main]
+  # Manual escape hatch: lets a failed or missed release be re-run without having to
+  # hand-craft a `chore: release ...` commit on main.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 5.0.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,7 +21,7 @@ jobs:
     name: ShipIt - Pull Request
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: "!startsWith(github.event.head_commit.message, 'chore: release ')"
+    if: "github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore: release ')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -40,7 +48,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: "startsWith(github.event.head_commit.message, 'chore: release ')"
+    if: "github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore: release ')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -55,19 +63,26 @@ jobs:
 
       - name: Extract version
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          MESSAGE="${{ github.event.head_commit.message }}"
-          VERSION="${MESSAGE#chore: release }"
-          VERSION="${VERSION%% *}"
-          # ShipIt titles the PR "chore: release <name>@<version>"; strip the name@ prefix.
-          VERSION="${VERSION##*@}"
+          if [ -n "$INPUT_VERSION" ]; then
+            # Manual run: take the version straight from the dispatch input.
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${COMMIT_MESSAGE#chore: release }"
+            VERSION="${VERSION%% *}"
+            # ShipIt titles the PR "chore: release <name>@<version>"; strip the name@ prefix.
+            VERSION="${VERSION##*@}"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependencies
         run: |
           dotnet tool restore
-          dotnet restore src
+          dotnet restore Fable.Giraffe.sln
 
       - name: Pack NuGet
         run: just pack-version ${{ steps.version.outputs.version }}
