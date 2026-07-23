@@ -79,7 +79,7 @@ type HttpHandler = HttpFunc -> HttpFunc
 ### Build System
 
 - `Justfile` - Build targets (replaces the old FAKE-based Build.fs)
-- Uses Fable 5.11.0 for F# to Python, JavaScript and BEAM compilation
+- Uses Fable 5.12.0 for F# to Python, JavaScript and BEAM compilation
 - Uses uv for Python dependency management
 
 ### Compilation Flow
