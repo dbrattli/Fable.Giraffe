@@ -98,4 +98,4 @@ pack-version version:
 
 # Run EasyBuild.ShipIt for release management (opens/updates the release PR)
 shipit *args:
-    dotnet shipit {{args}}
+    dotnet shipit --skip-invalid-commit {{args}}
