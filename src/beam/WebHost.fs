@@ -22,9 +22,30 @@ module CowboyFFI =
     [<Emit("src_beam_middleware")>]
     let middlewareAtom: Atom = nativeOnly
 
+    /// Cowboy's built-in static-file handler module. We delegate the whole static-serving
+    /// problem — mime detection, ETags, Range requests, conditional requests — to it rather
+    /// than reimplement any of that.
+    [<Emit("cowboy_static")>]
+    let cowboyStaticAtom: Atom = nativeOnly
+
+    /// cowboy_static init state serving a directory: `{dir, Dir, [{mimetypes, cow_mimetypes, all}]}`.
+    /// `Dir` is a binary here (an F# string on BEAM); cowboy_static's `absname/1` accepts binaries.
+    /// The mimetypes extra routes content-type guessing through cowlib's cow_mimetypes:all/1.
+    [<Emit("{dir, $0, [{mimetypes, cow_mimetypes, all}]}")>]
+    let dirState (directory: string) : obj = nativeOnly
+
 type IApplicationBuilder =
     abstract ApplicationServices: ServiceCollection with get, set
     abstract UseGiraffe: HttpHandler -> unit
+
+    /// Serve files from <c>directory</c> under the URL prefix <c>requestPath</c> (e.g.
+    /// <c>UseStaticFiles("/static", "public")</c> maps <c>GET /static/app.css</c> to
+    /// <c>public/app.css</c>). Requests that don't match the prefix fall through to Giraffe.
+    ///
+    /// Unlike the Python/JS backends there is no root-mount (empty-prefix) form: Cowboy routing
+    /// is exclusive longest-prefix matching with no fall-through, so a root static mount would
+    /// shadow the Giraffe catch-all entirely. A prefix is therefore required.
+    abstract UseStaticFiles: string * string -> unit
 
 type IWebHostBuilder =
     abstract Configure: Action<IApplicationBuilder> -> IWebHostBuilder
@@ -34,6 +55,7 @@ type WebHostBuilder() =
     let loggerFactory = LoggerFactory.Create()
     let services = ServiceCollection()
     let mutable handler: HttpHandler option = None
+    let staticMounts = ResizeArray<string * string>()
 
     interface IWebHostBuilder with
         member this.Configure(configureApp: Action<IApplicationBuilder>) =
@@ -43,7 +65,10 @@ type WebHostBuilder() =
                         with get () = services
                         and set _ = ()
 
-                    member _.UseGiraffe(h: HttpHandler) = handler <- Some h }
+                    member _.UseGiraffe(h: HttpHandler) = handler <- Some h
+
+                    member _.UseStaticFiles(requestPath: string, directory: string) =
+                        staticMounts.Add(requestPath, directory) }
 
             configureApp.Invoke(app)
             this
@@ -52,13 +77,24 @@ type WebHostBuilder() =
             match handler with
             | None -> failwith "No handler configured. Call UseGiraffe in Configure."
             | Some h ->
-                // Build Cowboy routing dispatch: all paths → middleware module with the handler
-                // AND the services collection as state, so the request handler can resolve
-                // services (logger, etc.) off the context via GetService.
+                // Build Cowboy routing dispatch. Static mounts are compiled to cowboy_static
+                // routes at their URL prefix and placed AHEAD of the Giraffe catch-all, since
+                // Cowboy matches the most specific route and never falls through.
+                let staticRoutes =
+                    staticMounts
+                    |> Seq.map (fun (requestPath, directory) ->
+                        CowboyRouter.route (requestPath + "/[...]") CowboyFFI.cowboyStaticAtom (CowboyFFI.dirState directory))
+                    |> List.ofSeq
+
+                // Catch-all: every remaining path → middleware module with the handler AND the
+                // services collection as state, so the request handler can resolve services
+                // (logger, etc.) off the context via GetService.
                 let catchAllRoute =
                     CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (h, services)
 
-                let hostRule = CowboyRouter.hostRule CowboyRouter.wildcard [ catchAllRoute ]
+                let hostRule =
+                    CowboyRouter.hostRule CowboyRouter.wildcard (staticRoutes @ [ catchAllRoute ])
+
                 let dispatch = CowboyRouter.compile [ hostRule ]
 
                 let transportOpts = Cowboy.tcpPort port

@@ -143,3 +143,6 @@ Fable.Giraffe.sln.DotSettings.user
 .fake
 .claude/worktrees/
 erl_crash.dump
+
+# npm — runtime deps for the JS/Node backend (package-lock.json is committed)
+node_modules/

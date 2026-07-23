@@ -16,5 +16,6 @@ let webApp =
 let start () =
     WebHostBuilder()
         .Configure(fun app ->
+            app.UseStaticFiles("/static", "app/public")
             app.UseGiraffe(webApp))
         .Build(8080)

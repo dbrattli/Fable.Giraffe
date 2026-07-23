@@ -38,5 +38,7 @@ let webApp =
 WebHostBuilder()
     .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
     .UseConsoleLogging()
-    .Configure(fun app -> app.UseGiraffe(webApp))
+    .Configure(fun app ->
+        app.UseStaticFiles("/static", "app/public")
+        app.UseGiraffe(webApp))
     .Run(8080)

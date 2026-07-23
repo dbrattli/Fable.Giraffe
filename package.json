@@ -1,0 +1,8 @@
+{
+  "name": "fable-giraffe",
+  "private": true,
+  "description": "Runtime npm dependencies for the Fable.Giraffe JS/Node backend (the compiled library imports these).",
+  "dependencies": {
+    "serve-static": "^2.2.0"
+  }
+}
