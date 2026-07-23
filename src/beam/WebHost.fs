@@ -1,7 +1,6 @@
 namespace Fable.Giraffe
 
 open System
-open System.Threading.Tasks
 open Fable.Core
 open Fable.Beam
 open Fable.Beam.Cowboy
@@ -9,7 +8,6 @@ open Fable.Logging
 
 module Cowboy = Fable.Beam.Cowboy.Cowboy
 module CowboyRouter = Fable.Beam.Cowboy.CowboyRouter
-open Fable.Giraffe.Pipelines
 
 module CowboyFFI =
     /// Atom for the listener name.
