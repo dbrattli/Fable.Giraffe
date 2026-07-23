@@ -1,5 +1,8 @@
 namespace Fable.Giraffe
 
+open System
+open System.Threading.Tasks
+
 open Fable.Core
 
 [<AutoOpen>]
@@ -17,3 +20,14 @@ module PlatformHelpers =
     /// CPython closes the handle via refcounting once `read()` returns.
     [<Emit("open($0, encoding='utf-8').read()")>]
     let readFileText (path: string) : string = nativeOnly
+
+    /// Start an `Async` and expose it as a `Task`. Direct on this backend; the JS backend
+    /// has to route through `StartAsPromise` because fable-library-js has no `startAsTask`.
+    let startAsTask (computation: Async<'T>) : Task<'T> = Async.StartAsTask computation
+
+    /// Turn a JSON-decoded argument into the record instance the handler expects.
+    /// Fable compiles Python records to `__slots__` classes, so a decoded `dict`
+    /// is not usable as-is: rebuild it positionally from the reflection TypeInfo.
+    /// Only the top level is reconstructed — nested records stay dicts.
+    [<Emit("$1.construct(*[$0[f[0]] for f in $1.fields()]) if isinstance($0, dict) and getattr($1, 'construct', None) and getattr($1, 'fields', None) else $0")>]
+    let convertJsonArg (value: obj) (targetType: Type) : obj = nativeOnly

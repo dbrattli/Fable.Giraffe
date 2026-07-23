@@ -76,7 +76,9 @@ let tests =
                                     |> Remoting.buildHttpHandler
                                     setStatusCode 404 >=> text "Not found" ]
 
-                          let expected = "[1, 2, 3, 4, 5]" |> Encoding.UTF8.GetBytes
+                          // Built via `serialize` rather than a literal: Python's json.dumps pads
+                          // separators ("[1, 2, ...]") while JS's JSON.stringify is compact.
+                          let expected = [ 1..5 ] |> serialize |> Encoding.UTF8.GetBytes
 
                           let! result = app next testCtx
 

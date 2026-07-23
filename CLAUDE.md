@@ -73,8 +73,27 @@ type HttpHandler = HttpFunc -> HttpFunc
 - **Middleware.fs** - `GiraffeMiddleware` that bridges handlers into the ASGI pipeline
 - **WebHost.fs** - `WebHostBuilder` for configuring the application, logging, and services
 - **Json.fs** - Custom JSON serialization wrapping Fable.Python.Json with underscore-stripping for Fable 5 compatibility
-- **Remoting.fs** - RPC-style remoting via reflection over F# record types
+- **Remoting.fs** - RPC-style remoting via reflection over F# record types (shared; Python + JS)
 - **StaticFiles.fs** - Static file serving via Starlette
+
+### Remoting
+
+`src/Remoting.fs` is shared. It reflects over a record of `... -> Async<'T>` fields and generates one
+sub-route per field under `/{ApiName}`. The two target-specific pieces sit behind `PlatformHelpers`:
+
+- `startAsTask` — Async->Task bridge. Direct on Python; JS routes through `Async.StartAsPromise`
+  because fable-library-js has no `startAsTask` (`Async.StartAsTask` fails to link at runtime).
+- `convertJsonArg` — rebuilds a record from a JSON-decoded argument. A real conversion on Python
+  (records are `__slots__` classes); the identity on JS (records are plain objects, so `JSON.parse`
+  output is already structurally valid). Both are shallow — nested records are not reconstructed.
+
+**BEAM is blocked** on a Fable compiler bug: record construction keys the Erlang map with
+`sanitizeFieldName` (appends `_` for lowercase-first names) while reflection reports `erl_name` via
+`sanitizeErlangName` (strips trailing `_`). They disagree for exactly the camelCase fields an API
+contract uses, so `PropertyInfo.GetValue` fails with `{badkey,...}` and `FSharpValue.MakeRecord`
+silently builds a record the compiled accessors cannot read. Type-level reflection on BEAM is
+otherwise complete and matches Python/JS exactly. Written up in
+`../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
 
 ### Build System
 
@@ -92,7 +111,8 @@ Tests (`test/`) -> compiled per target to `build/tests-py/`, `build/test-js/`, `
 One behavioral suite in `test/shared/` (`HandlerTests.fs`, `RoutingTests.fs`) is compiled into three
 per-target projects — `test/python`, `test/js`, `test/beam` — each supplying its own `TestContext.fs`
 (a `TestContext.create` factory building an isolated context without a real server) and a thin
-`Main.fs` entry point. `RemotingTests.fs` is Python-only.
+`Main.fs` entry point. `RemotingTests.fs` runs on Python and JS; BEAM is blocked on a Fable
+compiler bug (see the Remoting note below).
 
 Tests are written with [Scriptorium](https://github.com/fable-hub/Scriptorium) — Quill for the test
 DSL and runner, Nib for assertions — both of which compile to all three targets. `test/shared/Helpers.fs`

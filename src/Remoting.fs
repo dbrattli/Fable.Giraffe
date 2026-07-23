@@ -1,11 +1,9 @@
-﻿module Fable.Giraffe.Remoting
+module Fable.Giraffe.Remoting
 
 open System
 open System.Text
 
 open FSharp.Reflection
-
-open Fable.Core
 
 open Fable.Giraffe
 open Fable.Giraffe.Json
@@ -33,11 +31,7 @@ type Signature<'A, 'B, 'C, 'TResult> =
         | 3 -> Arity3(value :?> Func<_, _, _, _>)
         | _ -> failwith "Only methods with 1, 2 or 3 arguments are supported"
 
-module RemotongHelpers =
-    /// Convert a Python dict to a record instance using Fable reflection TypeInfo.
-    [<Emit("$1.construct(*[$0[f[0]] for f in $1.fields()]) if isinstance($0, dict) and getattr($1, 'construct', None) and getattr($1, 'fields', None) else $0")>]
-    let private convertArg (value: obj) (targetType: Type) : obj = nativeOnly
-
+module RemotingHelpers =
     let dashifyRoute (path: string) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
@@ -57,7 +51,7 @@ module RemotongHelpers =
 
             return
                 args
-                |> Array.mapi (fun i arg -> convertArg arg argumentTypes[i])
+                |> Array.mapi (fun i arg -> convertJsonArg arg argumentTypes[i])
                 |> Array.toList
         }
 
@@ -116,7 +110,7 @@ module RemotongHelpers =
                                       | _ -> return! readArgumentsFromBodyAsync ctx argumentTypes
                                   }
 
-                              let! output = method.Invoke args |> Async.StartAsTask
+                              let! output = method.Invoke args |> startAsTask
 
                               let json = serialize output
 
@@ -155,4 +149,4 @@ let inline buildHttpHandler (options: RemotingOptions<_, 'T>) =
     let apiName = removeNamespace typ.FullName
     let fields = FSharpType.GetRecordFields typ
 
-    RemotongHelpers.createRoutes api apiName fields
+    RemotingHelpers.createRoutes api apiName fields
