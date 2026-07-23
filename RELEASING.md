@@ -21,21 +21,28 @@ Other valid prefixes: `test`, `perf`, `ci`, `build`, `style`, `revert`.
 
 ## Creating a release
 
+Releases are automated. Every push to `main` runs the `shipit-pr` job in the
+publish workflow, which:
+
+1. Analyzes commits since the last release (tracked via `last_commit_released`
+   in `CHANGELOG.md`)
+2. Determines the next semantic version
+3. Opens (or updates) a **release pull request** titled `chore: release X.Y.Z`
+   with the updated `CHANGELOG.md`
+
+Review and merge that PR to ship. Merging lands a `chore: release X.Y.Z` commit
+on `main`, which triggers the `publish` job:
+
+1. Packs the NuGet packages (`Fable.Giraffe.Python`, `Fable.Giraffe.Js`,
+   `Fable.Giraffe.Beam`) at the release version
+2. Pushes them to nuget.org using the `NUGET_API_KEY` secret
+3. Creates the `vX.Y.Z` GitHub release
+
+To preview or generate the release PR locally instead:
+
 ```bash
 just shipit
 ```
-
-This will:
-
-1. Analyze commits since the last release
-2. Determine the next semantic version
-3. Update `CHANGELOG.md`
-4. Create a GitHub release with the version tag (e.g. `v0.1.0`)
-
-The GitHub release triggers the publish workflow, which:
-
-1. Packs all NuGet packages (`Fable.Giraffe.Python`, etc.)
-2. Pushes them to nuget.org using the `NUGET_API_KEY` secret
 
 ## Prerequisites
 
