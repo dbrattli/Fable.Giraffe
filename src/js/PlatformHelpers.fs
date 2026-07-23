@@ -30,9 +30,11 @@ module PlatformHelpers =
         Async.StartAsPromise computation
         |> unbox<Task<'T>>
 
-    /// Turn a JSON-decoded argument into the record instance the handler expects.
-    /// On JS this is the identity: Fable compiles records to plain objects keyed by
-    /// the field names, so `JSON.parse` already yields a structurally valid record
-    /// (verified: copy-update and re-serialization both round-trip). Python needs a
-    /// real conversion because its records are `__slots__` classes.
-    let convertJsonArg (value: obj) (_targetType: Type) : obj = value
+    /// True when a JSON-decoded value is an object rather than a scalar or an array.
+    /// Drives the shared record-reconstruction recursion.
+    [<Emit("(typeof $0 === 'object' && $0 !== null && !Array.isArray($0))")>]
+    let isJsonObject (value: obj) : bool = nativeOnly
+
+    /// Read a member from a JSON-decoded object by name, or `null`/`undefined` when absent.
+    [<Emit("$0[$1]")>]
+    let getJsonMember (value: obj) (name: string) : obj = nativeOnly

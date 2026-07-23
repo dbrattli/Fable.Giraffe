@@ -79,13 +79,29 @@ type HttpHandler = HttpFunc -> HttpFunc
 ### Remoting
 
 `src/Remoting.fs` is shared. It reflects over a record of `... -> Async<'T>` fields and generates one
-sub-route per field under `/{ApiName}`. The two target-specific pieces sit behind `PlatformHelpers`:
+sub-route per field under `/{ApiName}`. Only three small primitives are target-specific, and they sit
+behind `PlatformHelpers`:
 
 - `startAsTask` — Async->Task bridge. Direct on Python; JS routes through `Async.StartAsPromise`
   because fable-library-js has no `startAsTask` (`Async.StartAsTask` fails to link at runtime).
-- `convertJsonArg` — rebuilds a record from a JSON-decoded argument. A real conversion on Python
-  (records are `__slots__` classes); the identity on JS (records are plain objects, so `JSON.parse`
-  output is already structurally valid). Both are shallow — nested records are not reconstructed.
+- `isJsonObject` / `getJsonMember` — test a decoded JSON value for object-ness and read a member by
+  name (`dict` on Python, plain object on JS).
+
+Argument reconstruction itself (`RemotingHelpers.convertJsonValue`) is shared and recursive: it
+rebuilds records field-by-field via `FSharpValue.MakeRecord` and recurses through nested records and
+`'T list`. **Unions, options and maps are passed through unconverted** — they will reach the handler
+as raw decoded values.
+
+Failure handling: a body that is not a JSON array, or an argument count that does not match the
+method, answers **400**; an exception raised by an API method answers **500** with
+`{"error": "Internal server error"}` and does not leak the exception. `Remoting.withErrorHandler`
+replaces that default with an `exn -> HttpHandler`. The handler-exception path uses `Async.Catch`
+rather than `try/with` around a `let!`, which is the construct Fable compiles consistently.
+
+Note the **JSON wire format is not identical across backends**: Fable lowercases record field names
+on Python (`{"description": ...}`) but preserves them on JS (`{"Description": ...}`), so a JS client
+and a Python server do not currently interoperate. Tests build expectations via `serialize` rather
+than literals for this reason.
 
 **BEAM is blocked** on a Fable compiler bug: record construction keys the Erlang map with
 `sanitizeFieldName` (appends `_` for lowercase-first names) while reflection reports `erl_name` via

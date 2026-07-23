@@ -25,9 +25,11 @@ module PlatformHelpers =
     /// has to route through `StartAsPromise` because fable-library-js has no `startAsTask`.
     let startAsTask (computation: Async<'T>) : Task<'T> = Async.StartAsTask computation
 
-    /// Turn a JSON-decoded argument into the record instance the handler expects.
-    /// Fable compiles Python records to `__slots__` classes, so a decoded `dict`
-    /// is not usable as-is: rebuild it positionally from the reflection TypeInfo.
-    /// Only the top level is reconstructed — nested records stay dicts.
-    [<Emit("$1.construct(*[$0[f[0]] for f in $1.fields()]) if isinstance($0, dict) and getattr($1, 'construct', None) and getattr($1, 'fields', None) else $0")>]
-    let convertJsonArg (value: obj) (targetType: Type) : obj = nativeOnly
+    /// True when a JSON-decoded value is an object (a `dict` on this backend) rather
+    /// than a scalar or a list. Drives the shared record-reconstruction recursion.
+    [<Emit("isinstance($0, dict)")>]
+    let isJsonObject (value: obj) : bool = nativeOnly
+
+    /// Read a member from a JSON-decoded object by name, or `null` when absent.
+    [<Emit("$0.get($1)")>]
+    let getJsonMember (value: obj) (name: string) : obj = nativeOnly
