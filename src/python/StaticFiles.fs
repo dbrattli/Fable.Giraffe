@@ -22,17 +22,44 @@ module StaticFilesMiddleware =
 
     type IApplicationBuilder with
 
-        member x.UseStaticFiles(directory: string) : unit =
+        /// Serve files from <c>directory</c> under the URL prefix <c>requestPath</c> (e.g.
+        /// <c>UseStaticFiles("/static", "public")</c> maps <c>GET /static/app.css</c> to
+        /// <c>public/app.css</c>). An empty <c>requestPath</c> mounts at the root. Requests that
+        /// don't resolve to a file fall through to the rest of the pipeline (i.e. Giraffe). This
+        /// matches the BEAM/JS backends' 2-arg form; backed here by Starlette's StaticFiles.
+        member x.UseStaticFiles(requestPath: string, directory: string) : unit =
             x.UseMiddleware(fun app loggerFactory ->
                 let middleware = StaticFiles.Create(directory)
 
-                let inline asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
+                let asgi (scope: Scope) (receive: unit -> Task<Response>) (send: Request -> Task<unit>) =
                     task {
-                        try
-                            do! middleware.InvokeAsync(scope, receive, send)
-                        with ex ->
+                        let path = scope["path"] :?> string
+
+                        let matches =
+                            requestPath = ""
+                            || path = requestPath
+                            || path.StartsWith(requestPath + "/")
+
+                        if matches then
+                            // Strip the mount prefix so Starlette's StaticFiles resolves the file
+                            // relative to `directory` (the same rewrite a Starlette Mount does).
+                            // On a miss StaticFiles raises, so restore the original path before the
+                            // fall-through to Giraffe.
+                            let stripped = path.Substring(requestPath.Length)
+                            scope["path"] <- (if stripped = "" then "/" else stripped)
+
+                            try
+                                do! middleware.InvokeAsync(scope, receive, send)
+                            with _ ->
+                                scope["path"] <- path
+                                do! app.Invoke(scope, receive, send)
+                        else
                             do! app.Invoke(scope, receive, send)
                     }
 
                 Func<Scope, unit -> Task<Response>, Request -> Task<unit>, Task<unit>>(asgi))
             |> ignore
+
+        /// Serve files from <c>directory</c> at the URL root, falling through to Giraffe on a
+        /// miss. Shorthand for <c>UseStaticFiles("", directory)</c>.
+        member x.UseStaticFiles(directory: string) : unit = x.UseStaticFiles("", directory)
