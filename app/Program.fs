@@ -18,6 +18,8 @@ let loggingHandler (source: HttpHandler) =
 
 let webApp =
     choose [
+        route "/" |> HttpHandler.htmlFile "public/index.html"
+
         route "/ping" |> HttpHandler.text "pong"
 
         route "/json"

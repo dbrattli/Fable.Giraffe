@@ -35,6 +35,17 @@ module HttpHandler =
     /// </returns>
     let inline text (str: string) (source: HttpHandler) : HttpHandler = source >=> text str
 
+    /// <summary>
+    /// Reads an HTML file from disk and writes its contents to the body of the HTTP response, setting the
+    /// Content-Type header to text/html and the Content-Length header accordingly.
+    /// </summary>
+    /// <param name="filePath">The absolute or working-directory-relative path to the HTML file.</param>
+    /// <param name="source">The previous HTTP handler to compose.</param>
+    /// <returns>
+    /// A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.
+    /// </returns>
+    let inline htmlFile (filePath: string) (source: HttpHandler) : HttpHandler = source >=> htmlFile filePath
+
     let inline json (value: 'T) (source: HttpHandler) : HttpHandler = source >=> json value
 
     let inline route (path: string) (source: HttpHandler) : HttpHandler = source >=> route path
