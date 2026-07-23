@@ -34,6 +34,6 @@ let app =
         .ConfigureLogging(fun builder -> builder.SetMinimumLevel(LogLevel.Debug))
         .UseStructlog()
         .Configure(fun app ->
-            app.UseStaticFiles("public")
+            app.UseStaticFiles("/static", "public")
             app.UseGiraffe(webApp))
         .Build()
