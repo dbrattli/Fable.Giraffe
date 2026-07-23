@@ -59,6 +59,8 @@ jobs:
           MESSAGE="${{ github.event.head_commit.message }}"
           VERSION="${MESSAGE#chore: release }"
           VERSION="${VERSION%% *}"
+          # ShipIt titles the PR "chore: release <name>@<version>"; strip the name@ prefix.
+          VERSION="${VERSION##*@}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
