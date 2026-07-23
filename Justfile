@@ -45,6 +45,7 @@ build-js: clean
 
 # Build + start the example app on Node's built-in http server (port 8080)
 app-js: clean
+    npm install
     mkdir -p {{build_path}}
     {{fable}} app/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/app-js
     echo '{"type":"module"}' > {{build_path}}/app-js/package.json
@@ -89,6 +90,7 @@ format:
 setup:
     dotnet tool restore
     uv sync
+    npm install
 
 # Create NuGet packages with specific version (used in CI) — Python, JS and BEAM
 pack-version version:
