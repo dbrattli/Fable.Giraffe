@@ -17,3 +17,10 @@ module PlatformHelpers =
 
     [<Emit("ok")>]
     let okAtom: obj = nativeOnly
+
+    /// Read a file's contents as a UTF-8 string. `file:read_file/1` returns
+    /// `{ok, Binary}` on success — an Erlang binary, which is already the
+    /// representation of an F# string on BEAM, so no decoding is needed.
+    /// `path` is absolute or relative to the node's working directory.
+    [<Emit("element(2, file:read_file($0))")>]
+    let readFileText (path: string) : string = nativeOnly

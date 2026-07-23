@@ -240,6 +240,25 @@ module Core =
             ctx.WriteBytesAsync bytes
 
     /// <summary>
+    /// Reads an HTML file from disk and writes its contents to the body of the HTTP response.
+    /// It also sets the HTTP Content-Type header to text/html and sets the Content-Length header accordingly.
+    /// </summary>
+    /// <remarks>
+    /// The file is read per request (so edits are picked up) and, unlike the .NET Giraffe handler, the read is
+    /// synchronous on every backend for now. <c>filePath</c> is an absolute path or one relative to the process
+    /// working directory — there is no ContentRoot concept on the Fable backends yet.
+    /// </remarks>
+    /// <param name="filePath">The absolute or working-directory-relative path to the HTML file.</param>
+    /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
+    let htmlFile (filePath: string) : HttpHandler =
+        let contentType = "text/html; charset=utf-8"
+
+        fun (_: HttpFunc) (ctx: HttpContext) ->
+            ctx.SetContentType contentType
+            let bytes = Encoding.UTF8.GetBytes(readFileText filePath)
+            ctx.WriteBytesAsync bytes
+
+    /// <summary>
     /// Serializes an object to JSON and writes the output to the body of the HTTP response.
     /// It also sets the HTTP Content-Type header to application/json and sets the Content-Length header accordingly.
     /// </summary>
