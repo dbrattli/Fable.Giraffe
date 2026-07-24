@@ -1,11 +1,19 @@
 ---
-last_commit_released: 79eba87897ec73d3783f02a2540e47d598a308fc
+last_commit_released: ad0bf743fc468b0f95b8ddd45001ab65c593a724
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.0.1 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* Restore a real project in the release job and add a manual trigger (#52) ([ad0bf74](https://github.com/dbrattli/Fable.Giraffe/commit/ad0bf743fc468b0f95b8ddd45001ab65c593a724))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/79eba87897ec73d3783f02a2540e47d598a308fc..ad0bf743fc468b0f95b8ddd45001ab65c593a724)</small></strong>
 
 ## 5.0.0 - 2026-07-23
 
