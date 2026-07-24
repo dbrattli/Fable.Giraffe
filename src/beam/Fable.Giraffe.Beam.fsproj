@@ -21,6 +21,7 @@
     <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
     <Compile Include="../Core.fs" Link="Core.fs" />
     <Compile Include="../Routing.fs" Link="Routing.fs" />
+    <Compile Include="../Remoting.fs" Link="Remoting.fs" />
     <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
     <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
     <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />

@@ -10,6 +10,17 @@ open Fable.Beam.Cowboy.CowboyReq
 
 module CowboyReq = Fable.Beam.Cowboy.CowboyReq
 
+/// A body pre-buffered into the request map under `giraffe_body`. The in-process test harness
+/// seeds it there because it has no live socket for `cowboy_req:read_body` to stream from; real
+/// Cowboy requests never carry this key, so production always streams.
+module private BufferedBody =
+
+    [<Emit("maps:is_key(giraffe_body, $0)")>]
+    let has (req: Req) : bool = nativeOnly
+
+    [<Emit("maps:get(giraffe_body, $0)")>]
+    let get (req: Req) : string = nativeOnly
+
 /// HTTP request backed by a Cowboy request object.
 type HttpRequest(req: Req) =
     member x.Path: string option = CowboyReq.path req |> Some
@@ -24,8 +35,11 @@ type HttpRequest(req: Req) =
 
     member x.GetBodyAsync() =
         task {
-            let (_ok, body, _req2) = CowboyReq.readBody req
-            return body
+            if BufferedBody.has req then
+                return BufferedBody.get req
+            else
+                let (_ok, body, _req2) = CowboyReq.readBody req
+                return body
         }
 
     member x.Headers = HeaderDictionary()
