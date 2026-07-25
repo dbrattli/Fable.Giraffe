@@ -1,5 +1,9 @@
 namespace Fable.Giraffe
 
+open System
+open System.Text
+open System.Threading.Tasks
+
 open Fable.Core
 
 [<AutoOpen>]
@@ -24,3 +28,51 @@ module PlatformHelpers =
     /// `path` is absolute or relative to the node's working directory.
     [<Emit("element(2, file:read_file($0))")>]
     let readFileText (path: string) : string = nativeOnly
+
+    /// Start an `Async` and expose it as a `Task`. On BEAM the `task` computation
+    /// expression is a CPS alias for `Async` (see Helpers.toAsync), so the two share a
+    /// runtime representation and the bridge is the identity — no scheduler hop.
+    let startAsTask (computation: Async<'T>) : Task<'T> = unbox computation
+
+    /// True when a JSON-decoded value is an object rather than a scalar or an array.
+    /// `jsx:decode(_, [return_maps])` decodes JSON objects to Erlang maps, so this is
+    /// `is_map`. Drives the shared record-reconstruction recursion.
+    [<Emit("is_map($0)")>]
+    let isJsonObject (value: obj) : bool = nativeOnly
+
+    /// The wire key for a record field. Fable's BEAM backend keys record maps — and thus
+    /// `jsx:encode` output and `jsx:decode` input — by the Erlang atom form of the field
+    /// name: snake_case, lowercased, with a trailing `_` when the F# name starts lowercase
+    /// (Fable's `sanitizeFieldName`). Reflection still reports the pristine F# name via
+    /// `PropertyInfo.Name`, so we reproduce that mangling to find the decoded value.
+    /// e.g. `FirstName -> first_name`, `lastName -> last_name_`, `HTTPStatus -> h_t_t_p_status`.
+    ///
+    /// This is the *sanctioned* Beam integration point, not a stopgap: the Fable team declined to
+    /// surface the map key through reflection or to key record JSON on clean names (neither is needed
+    /// for reflection correctness, which #4849 / Fable 5.13.0 already delivered). `sanitizeFieldName`
+    /// is not expected to change; if it ever does, the Beam wire key is treated as part of the
+    /// contract. So this reproduction stays — do not "simplify" it away against a future upstream fix.
+    let internal toWireKey (name: string) : string =
+        let sb = StringBuilder()
+
+        name
+        |> Seq.iteri (fun i c ->
+            if Char.IsUpper c then
+                if i > 0 then
+                    sb.Append('_') |> ignore
+
+                sb.Append(Char.ToLower c) |> ignore
+            else
+                sb.Append(c) |> ignore)
+
+        if name.Length > 0 && Char.IsLower name.[0] then
+            sb.Append('_') |> ignore
+
+        sb.ToString()
+
+    [<Emit("maps:get($1, $0, null)")>]
+    let private mapGet (value: obj) (key: string) : obj = nativeOnly
+
+    /// Read a member from a JSON-decoded object (an Erlang map) by its F# field name, or
+    /// `null` when absent. The name is mangled to the decoded map's key form first.
+    let getJsonMember (value: obj) (name: string) : obj = mapGet value (toWireKey name)

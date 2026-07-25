@@ -78,14 +78,18 @@ type HttpHandler = HttpFunc -> HttpFunc
 
 ### Remoting
 
-`src/Remoting.fs` is shared. It reflects over a record of `... -> Async<'T>` fields and generates one
-sub-route per field under `/{ApiName}`. Only three small primitives are target-specific, and they sit
-behind `PlatformHelpers`:
+`src/Remoting.fs` is shared across **all three** targets (Python, JS, BEAM). It reflects over a record
+of `... -> Async<'T>` fields and generates one sub-route per field under `/{ApiName}`. Only three
+small primitives are target-specific, and they sit behind `PlatformHelpers`:
 
 - `startAsTask` — Async->Task bridge. Direct on Python; JS routes through `Async.StartAsPromise`
-  because fable-library-js has no `startAsTask` (`Async.StartAsTask` fails to link at runtime).
+  because fable-library-js has no `startAsTask` (`Async.StartAsTask` fails to link at runtime); on
+  BEAM it is the identity (`unbox`), since `task` is a CPS alias for `Async` there.
 - `isJsonObject` / `getJsonMember` — test a decoded JSON value for object-ness and read a member by
-  name (`dict` on Python, plain object on JS).
+  name (`dict` on Python, plain object on JS, an Erlang `map` on BEAM). On BEAM the decoded map is
+  keyed by the mangled record-field atom, not the F# name, so `getJsonMember` first maps the
+  reflection name through `toWireKey` (a reproduction of Fable's `sanitizeFieldName`: snake_case,
+  lowercased, trailing `_` for lowercase-first names). See the Fable follow-up gap below.
 
 Argument reconstruction itself (`RemotingHelpers.convertJsonValue`) is shared and recursive: it
 rebuilds records field-by-field via `FSharpValue.MakeRecord` and recurses through nested records and
@@ -99,22 +103,40 @@ replaces that default with an `exn -> HttpHandler`. The handler-exception path u
 rather than `try/with` around a `let!`, which is the construct Fable compiles consistently.
 
 Note the **JSON wire format is not identical across backends**: Fable lowercases record field names
-on Python (`{"description": ...}`) but preserves them on JS (`{"Description": ...}`), so a JS client
-and a Python server do not currently interoperate. Tests build expectations via `serialize` rather
+on Python (`{"description": ...}`) and snake_case-lowercases them on BEAM (`{"description": ...}`,
+`{"first_name": ...}`) but preserves them on JS (`{"Description": ...}`), so a JS client and a
+Python/BEAM server do not currently interoperate. Tests build expectations via `serialize` rather
 than literals for this reason.
 
-**BEAM is blocked** on a Fable compiler bug: record construction keys the Erlang map with
-`sanitizeFieldName` (appends `_` for lowercase-first names) while reflection reports `erl_name` via
-`sanitizeErlangName` (strips trailing `_`). They disagree for exactly the camelCase fields an API
-contract uses, so `PropertyInfo.GetValue` fails with `{badkey,...}` and `FSharpValue.MakeRecord`
-silently builds a record the compiled accessors cannot read. Type-level reflection on BEAM is
-otherwise complete and matches Python/JS exactly. Written up in
-`../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
+**BEAM was unblocked by Fable 5.13.0** (`fix(beam)` #4849 made reflection value access agree with
+record *and union* codegen — `PropertyInfo.GetValue` / `FSharpValue.MakeRecord` / `MakeUnion` no
+longer `{badkey,...}`). Remoting now runs on all three targets. Two BEAM-specific notes remain:
+
+- Reflection reports the pristine F# field name, not the record-map key, so `getJsonMember`
+  reproduces `sanitizeFieldName` via `toWireKey` (see above). The Fable team **declined** to change
+  the BEAM reflection surface or wire format (neither is needed for reflection correctness), so
+  `toWireKey` is the **sanctioned** integration point — not a temporary shim to delete. `sanitizeFieldName`
+  is stable; if it ever changes, the wire key is treated as contract. Background in
+  `../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
+- The BEAM test runner wraps the suites in `testSequenced` (`test/beam/Main.fs`): every remoting test
+  passes in isolation, but under Quill's default cross-suite concurrency on BEAM the body assertions
+  intermittently fail with a garbled diff. This is a Scriptorium/BEAM concurrency+rendering gap
+  (Scriptorium PRs #13/#15); revert to plain parallel `runTests` once they release — tracked in
+  issue #54.
+
+**Python tripwire on the next `fable-library-py` bump.** The Fable team is fixing Python reflection to
+report the *pristine* F# field name (like BEAM) while keeping the snake_case runtime slot
+(`PYTHON-RECORD-REFLECTION-FIELD-NAME-PROMPT.md`). When that lands, `convertJsonValue`'s
+`getJsonMember value f.Name` on Python will look up `FirstName` against a wire still keyed
+`first_name` (`giraffeDefault` reads `__slots__`) → reconstruction breaks. On that bump, add a Python
+wire-key mapping mirroring BEAM's `toWireKey` (pristine → snake_case slot), or serialize on the
+pristine name. The Python remoting tests use single-word PascalCase fields, which mangle to
+themselves, so they will *not* catch it — add a multi-word field first.
 
 ### Build System
 
 - `Justfile` - Build targets (replaces the old FAKE-based Build.fs)
-- Uses Fable 5.12.0 for F# to Python, JavaScript and BEAM compilation
+- Uses Fable 5.13.0 for F# to Python, JavaScript and BEAM compilation
 - Uses uv for Python dependency management
 
 ### Compilation Flow
@@ -127,8 +149,8 @@ Tests (`test/`) -> compiled per target to `build/tests-py/`, `build/test-js/`, `
 One behavioral suite in `test/shared/` (`HandlerTests.fs`, `RoutingTests.fs`) is compiled into three
 per-target projects — `test/python`, `test/js`, `test/beam` — each supplying its own `TestContext.fs`
 (a `TestContext.create` factory building an isolated context without a real server) and a thin
-`Main.fs` entry point. `RemotingTests.fs` runs on Python and JS; BEAM is blocked on a Fable
-compiler bug (see the Remoting note below).
+`Main.fs` entry point. `RemotingTests.fs` runs on all three targets as of Fable 5.13.0 (see the
+Remoting note below for the two BEAM-specific caveats: `toWireKey` and the `testSequenced` runner).
 
 Tests are written with [Scriptorium](https://github.com/fable-hub/Scriptorium) — Quill for the test
 DSL and runner, Nib for assertions — both of which compile to all three targets. `test/shared/Helpers.fs`
