@@ -109,18 +109,29 @@ Python/BEAM server do not currently interoperate. Tests build expectations via `
 than literals for this reason.
 
 **BEAM was unblocked by Fable 5.13.0** (`fix(beam)` #4849 made reflection value access agree with
-record codegen — `PropertyInfo.GetValue` / `FSharpValue.MakeRecord` no longer `{badkey,...}`).
-Remoting now runs on all three targets. Two BEAM-specific notes remain:
+record *and union* codegen — `PropertyInfo.GetValue` / `FSharpValue.MakeRecord` / `MakeUnion` no
+longer `{badkey,...}`). Remoting now runs on all three targets. Two BEAM-specific notes remain:
 
-- Reflection reports the pristine F# field name, not the record-map key, so `getJsonMember` has to
-  reproduce `sanitizeFieldName` via `toWireKey` (see above). The remaining ask — expose the map key
-  through reflection, or serialize records on clean names — is written up as a follow-up in
+- Reflection reports the pristine F# field name, not the record-map key, so `getJsonMember`
+  reproduces `sanitizeFieldName` via `toWireKey` (see above). The Fable team **declined** to change
+  the BEAM reflection surface or wire format (neither is needed for reflection correctness), so
+  `toWireKey` is the **sanctioned** integration point — not a temporary shim to delete. `sanitizeFieldName`
+  is stable; if it ever changes, the wire key is treated as contract. Background in
   `../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
 - The BEAM test runner wraps the suites in `testSequenced` (`test/beam/Main.fs`): every remoting test
   passes in isolation, but under Quill's default cross-suite concurrency on BEAM the body assertions
   intermittently fail with a garbled diff. This is a Scriptorium/BEAM concurrency+rendering gap
   (Scriptorium PRs #13/#15); revert to plain parallel `runTests` once they release — tracked in
   issue #54.
+
+**Python tripwire on the next `fable-library-py` bump.** The Fable team is fixing Python reflection to
+report the *pristine* F# field name (like BEAM) while keeping the snake_case runtime slot
+(`PYTHON-RECORD-REFLECTION-FIELD-NAME-PROMPT.md`). When that lands, `convertJsonValue`'s
+`getJsonMember value f.Name` on Python will look up `FirstName` against a wire still keyed
+`first_name` (`giraffeDefault` reads `__slots__`) → reconstruction breaks. On that bump, add a Python
+wire-key mapping mirroring BEAM's `toWireKey` (pristine → snake_case slot), or serialize on the
+pristine name. The Python remoting tests use single-word PascalCase fields, which mangle to
+themselves, so they will *not* catch it — add a multi-word field first.
 
 ### Build System
 
