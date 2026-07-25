@@ -101,3 +101,8 @@ pack-version version:
 # Run EasyBuild.ShipIt for release management (opens/updates the release PR)
 shipit *args:
     dotnet shipit --skip-invalid-commit {{args}}
+
+# Benchmark a /ping handler across targets, all with logging off (oha, 10k req / 100 conn).
+# Pass targets to limit the run, e.g. `just bench python js`. Requires oha on PATH.
+bench *targets:
+    FABLE="{{fable}}" perf/bench.sh {{targets}}
