@@ -1,0 +1,4 @@
+# Fable-generated Python output (compiled in place by perf/bench.sh)
+*.py
+fable_modules/
+__pycache__/
