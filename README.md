@@ -114,9 +114,9 @@ reference point.
 | Target | Requests/sec | Avg latency | P99 latency |
 |---|---|---|---|
 | .NET (reference) | ~321,000 | 0.29 ms | 1.33 ms |
-| Erlang/BEAM (Cowboy) | ~217,000 | 0.44 ms | 1.71 ms |
+| Erlang/BEAM (Cowboy) | ~224,000 | 0.42 ms | 1.71 ms |
 | JavaScript (Node) | ~63,000 | 1.56 ms | 3.24 ms |
-| Python (uvicorn, 1 worker) | ~14,000 | 6.95 ms | 15.22 ms |
+| Python (uvicorn, 1 worker) | ~14,600 | 6.79 ms | 11.90 ms |
 
 These numbers are machine-dependent and only meaningful relative to one another;
 throughput at the top of the table is noisy because the framework outruns the
