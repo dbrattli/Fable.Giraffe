@@ -17,11 +17,14 @@ type GiraffeMiddleware(app: ASGIApp, handler: HttpHandler, loggerFactory: ILogge
             let ctx = HttpContext(scope, receive, send)
 
             if ctx.Request.Protocol = "http" then
-                let start = Diagnostics.Stopwatch.GetTimestamp()
+                // Only read the clock when the access log will actually be emitted;
+                // otherwise this is a per-request syscall on the hot path for nothing.
+                let logging = logger.IsEnabled LogLevel.Debug
+                let start = if logging then Diagnostics.Stopwatch.GetTimestamp() else 0L
 
                 let! result = func ctx
 
-                if logger.IsEnabled LogLevel.Debug then
+                if logging then
                     let stop = Diagnostics.Stopwatch.GetTimestamp()
 
                     let elapsedMs = (double (stop - start)) * 1000.0 / freq

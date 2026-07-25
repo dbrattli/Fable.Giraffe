@@ -46,12 +46,13 @@ module SubRouting =
 module Routing =
     let route (path: string) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
-            task {
-                if (SubRouting.getNextPartOfPath ctx).Equals path then
-                    return! next ctx
-                else
-                    return! skipPipeline ()
-            }
+            // Both branches already yield an HttpFuncResult (Task), so return it directly
+            // rather than wrapping in a `task { return! ... }` — that CE compiles to a
+            // builder/Delay/Run layer on every request for no behavioural gain.
+            if (SubRouting.getNextPartOfPath ctx).Equals path then
+                next ctx
+            else
+                skipPipeline ()
 
     /// <summary>
     /// Filters an incoming HTTP request based on the request path (case insensitive).

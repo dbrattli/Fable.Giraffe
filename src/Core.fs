@@ -85,12 +85,12 @@ module Core =
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let private httpVerb (validate: string -> bool) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
-            task {
-                if validate ctx.Request.Method then
-                    return! next ctx
-                else
-                    return! skipPipeline ()
-            }
+            // Return the existing Task directly; a `task { return! ... }` wrapper here is
+            // pure per-request overhead (builder/Delay/Run) since neither branch awaits.
+            if validate ctx.Request.Method then
+                next ctx
+            else
+                skipPipeline ()
 
     let GET: HttpHandler = httpVerb HttpMethods.IsGet
     let POST: HttpHandler = httpVerb HttpMethods.IsPost
