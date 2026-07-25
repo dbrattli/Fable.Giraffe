@@ -1,11 +1,19 @@
 ---
-last_commit_released: ad0bf743fc468b0f95b8ddd45001ab65c593a724
+last_commit_released: 28b9388483892e016dbafa08c902ced2197e0dd7
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.1.0 - 2026-07-25
+
+### 🚀 Features
+
+* Enable remoting on the BEAM target (#55) ([9ec1c7a](https://github.com/dbrattli/Fable.Giraffe/commit/9ec1c7a2834855cdda2c1c25980a4f6f00f26006))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/ad0bf743fc468b0f95b8ddd45001ab65c593a724..28b9388483892e016dbafa08c902ced2197e0dd7)</small></strong>
 
 ## 5.0.1 - 2026-07-24
 
