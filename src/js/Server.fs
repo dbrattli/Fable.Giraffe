@@ -77,19 +77,24 @@ module Server =
 
             go stages)
 
-    /// Run the Giraffe handler for a single request. If the pipeline never wrote
-    /// a response, `onUnhandled` decides what happens (call the host's `next`, or
-    /// answer 404 in standalone mode).
+    /// Run the pre-composed Giraffe pipeline for a single request. If it never
+    /// wrote a response, `onUnhandled` decides what happens (call the host's
+    /// `next`, or answer 404 in standalone mode).
     ///
-    /// The handler is applied fully here — `handler earlyReturn ctx` — rather
-    /// than pre-applied to a stored `HttpFunc`. `HttpHandler = HttpFunc ->
-    /// HttpFunc` is Fable's ambiguous "function returning a function" case (see
-    /// fable.io "automatic uncurrying"): a *partial* application stored as a
-    /// value gets mis-normalized (via `curry2`) so it returns a function instead
-    /// of running. A full, typed application is the shape Fable uncurries
-    /// consistently, independent of how the handler was composed.
+    /// `func` is `handler earlyReturn`, composed ONCE by the caller (`run` /
+    /// `toMiddleware`) rather than per request — the same shape the Python and
+    /// BEAM backends store. Storing the partial application as a typed `HttpFunc`
+    /// works: Fable emits `curry2(handler)(earlyReturn)`, which yields a correct
+    /// one-argument function, so `func ctx` runs the pipeline. An earlier comment
+    /// here claimed this mis-normalized into "a function that returns a function";
+    /// that does not reproduce on Fable 5.13 — verified against /ping and /json.
+    ///
+    /// This is for cross-backend consistency, not speed: unlike BEAM (where
+    /// composing per request cost ~5%), V8 already inlines the per-request
+    /// composition away, and the `curry2` wrapper roughly offsets it — measured
+    /// flat. Kept composed-once so all three backends read the same.
     let private dispatch
-        (handler: HttpHandler)
+        (func: HttpFunc)
         (services: ServiceCollection)
         (req: IncomingMessage)
         (res: ServerResponse)
@@ -99,7 +104,7 @@ module Server =
 
         (task {
             try
-                let! _ = handler earlyReturn ctx
+                let! _ = func ctx
 
                 if not ctx.Response.HasStarted then
                     onUnhandled ()
@@ -122,14 +127,16 @@ module Server =
         (services: ServiceCollection)
         : Func<IncomingMessage, ServerResponse, (unit -> unit), unit> =
         let statics = staticPipeline mounts
+        let func: HttpFunc = handler earlyReturn
 
-        Func<_, _, _, _>(fun req res next -> statics.Invoke(req, res, (fun () -> dispatch handler services req res next)))
+        Func<_, _, _, _>(fun req res next -> statics.Invoke(req, res, (fun () -> dispatch func services req res next)))
 
     /// Start a zero-framework `http` server driving the Giraffe handler. Configured static
     /// mounts (serve-static) are tried first; unmatched requests get a 404 (there is no outer
     /// host to fall through to).
     let run (mounts: (string * string) list) (handler: HttpHandler) (services: ServiceCollection) (port: int) : unit =
         let statics = staticPipeline mounts
+        let func: HttpFunc = handler earlyReturn
 
         let listener =
             Func<IncomingMessage, ServerResponse, unit>(fun req res ->
@@ -138,6 +145,6 @@ module Server =
                     res.setHeader ("content-type", "text/plain; charset=utf-8")
                     res.``end`` (box "Not Found")
 
-                statics.Invoke(req, res, (fun () -> dispatch handler services req res send404)))
+                statics.Invoke(req, res, (fun () -> dispatch func services req res send404)))
 
         (createServer listener).listen (port, (fun () -> printfn "Giraffe listening on http://localhost:%d" port))
