@@ -21,9 +21,9 @@ module GiraffeHandler =
     /// The Cowboy handler init callback.
     /// Called for every incoming request.
     let init (req: Req) (state: obj) : obj =
-        // State is (handler, services) — see WebHost.Build.
-        let handler, services = state :?> (HttpHandler * ServiceCollection)
-        let func: HttpFunc = handler earlyReturn
+        // State is (func, services) — the pipeline is composed once in WebHost.Build, so init/2
+        // (called by Cowboy for every request) does no per-request handler composition.
+        let func, services = state :?> (HttpFunc * ServiceCollection)
 
         // Create the HttpContext wrapping the Cowboy request and give it the services
         // collection so handlers can resolve dependencies (logger, etc.) via GetService.

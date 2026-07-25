@@ -86,11 +86,17 @@ type WebHostBuilder() =
                         CowboyRouter.route (requestPath + "/[...]") CowboyFFI.cowboyStaticAtom (CowboyFFI.dirState directory))
                     |> List.ofSeq
 
-                // Catch-all: every remaining path → middleware module with the handler AND the
-                // services collection as state, so the request handler can resolve services
+                // Compose the handler pipeline ONCE here rather than per request. Cowboy spawns
+                // a fresh handler process per request, so anything left in init/2 runs on the hot
+                // path; `h earlyReturn` is pure and reusable (the Python backend likewise composes
+                // once in its middleware constructor).
+                let func: HttpFunc = h earlyReturn
+
+                // Catch-all: every remaining path → middleware module with the composed pipeline
+                // AND the services collection as state, so the request handler can resolve services
                 // (logger, etc.) off the context via GetService.
                 let catchAllRoute =
-                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (h, services)
+                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (func, services)
 
                 let hostRule =
                     CowboyRouter.hostRule CowboyRouter.wildcard (staticRoutes @ [ catchAllRoute ])
