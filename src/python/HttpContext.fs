@@ -51,11 +51,19 @@ type HttpRequest(scope: Scope, receive: ReceiveAsync) =
 type HttpResponse(send: SendAsync) =
     let mutable statusCode = None
 
+    // Build the ASGI event dicts directly. `Dictionary(dict [ ... ])` compiles to
+    // make_dict(make_dict(...)) — two dict allocations each, per request — because the
+    // inner `dict [ ... ]` is materialised only to be copied into the outer Dictionary.
     let responseStart =
-        Dictionary<string, obj>(dict [ ("type", "http.response.start" :> obj); ("headers", ResizeArray<_>()) ])
+        let d = Dictionary<string, obj>()
+        d["type"] <- "http.response.start"
+        d["headers"] <- ResizeArray<string * obj>()
+        d
 
     let responseBody =
-        Dictionary<string, obj>(dict [ ("type", "http.response.body" :> obj) ])
+        let d = Dictionary<string, obj>()
+        d["type"] <- "http.response.body"
+        d
 
     member x.Headers =
         let tuples = responseStart["headers"] :?> ResizeArray<string * obj>
