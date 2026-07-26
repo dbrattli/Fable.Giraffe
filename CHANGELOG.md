@@ -1,11 +1,24 @@
 ---
-last_commit_released: 28b9388483892e016dbafa08c902ced2197e0dd7
+last_commit_released: 4020946b153b18572b4aa37e699ee35c0bdd41d0
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.2.0 - 2026-07-26
+
+### 🚀 Features
+
+* Add reproducible cross-target benchmark harness (#58) ([cea0f45](https://github.com/dbrattli/Fable.Giraffe/commit/cea0f4500b78f2664bcd5baf78d3fe97aa9fc76d))
+
+### ⚡ Performance Improvements
+
+* Trim per-request overhead on the Python hot path (#60) ([567cf9f](https://github.com/dbrattli/Fable.Giraffe/commit/567cf9fa7748fedeae364458c4fbe67e7c2a9b44))
+* Compose the BEAM handler pipeline once, not per request (#61) ([99487ad](https://github.com/dbrattli/Fable.Giraffe/commit/99487ad7b5b878b20a18d4704dfbe3fba530a415))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/28b9388483892e016dbafa08c902ced2197e0dd7..4020946b153b18572b4aa37e699ee35c0bdd41d0)</small></strong>
 
 ## 5.1.0 - 2026-07-25
 
