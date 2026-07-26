@@ -1,7 +1,9 @@
 # Fable.Giraffe
 
 [![Build and Test](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/dbrattli/Fable.Giraffe/actions/workflows/build-and-test.yml)
-[![Nuget](https://img.shields.io/nuget/vpre/Fable.Giraffe)](https://www.nuget.org/packages/Fable.Giraffe/)
+[![Fable.Giraffe.Python](https://img.shields.io/nuget/v/Fable.Giraffe.Python?label=Fable.Giraffe.Python)](https://www.nuget.org/packages/Fable.Giraffe.Python/)
+[![Fable.Giraffe.Js](https://img.shields.io/nuget/v/Fable.Giraffe.Js?label=Fable.Giraffe.Js)](https://www.nuget.org/packages/Fable.Giraffe.Js/)
+[![Fable.Giraffe.Beam](https://img.shields.io/nuget/v/Fable.Giraffe.Beam?label=Fable.Giraffe.Beam)](https://www.nuget.org/packages/Fable.Giraffe.Beam/)
 
 Fable.Giraffe is a port of the
 [Giraffe](https://github.com/giraffe-fsharp/Giraffe) F# web framework to
@@ -16,6 +18,20 @@ once in F# and run it on three runtimes:
 
 Fable.Giraffe's major version tracks the Fable compiler it targets: the 5.x
 line is built with and requires Fable 5.
+
+## Install
+
+There is one NuGet package per target — add the one for the runtime you are
+compiling to (all three share the same handler API):
+
+```console
+dotnet add package Fable.Giraffe.Python   # Python / ASGI
+dotnet add package Fable.Giraffe.Js       # JavaScript / Node.js
+dotnet add package Fable.Giraffe.Beam     # Erlang / BEAM
+```
+
+You also need the Fable compiler (`dotnet tool install fable`) and the target's
+runtime dependencies — see [Prerequisites](#prerequisites).
 
 ## Example
 
