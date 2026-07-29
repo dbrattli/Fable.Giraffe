@@ -110,7 +110,7 @@ than literals for this reason.
 
 **BEAM was unblocked by Fable 5.13.0** (`fix(beam)` #4849 made reflection value access agree with
 record *and union* codegen — `PropertyInfo.GetValue` / `FSharpValue.MakeRecord` / `MakeUnion` no
-longer `{badkey,...}`). Remoting now runs on all three targets. Two BEAM-specific notes remain:
+longer `{badkey,...}`). Remoting now runs on all three targets. One BEAM-specific note remains:
 
 - Reflection reports the pristine F# field name, not the record-map key, so `getJsonMember`
   reproduces `sanitizeFieldName` via `toWireKey` (see above). The Fable team **declined** to change
@@ -118,11 +118,10 @@ longer `{badkey,...}`). Remoting now runs on all three targets. Two BEAM-specifi
   `toWireKey` is the **sanctioned** integration point — not a temporary shim to delete. `sanitizeFieldName`
   is stable; if it ever changes, the wire key is treated as contract. Background in
   `../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
-- The BEAM test runner wraps the suites in `testSequenced` (`test/beam/Main.fs`): every remoting test
-  passes in isolation, but under Quill's default cross-suite concurrency on BEAM the body assertions
-  intermittently fail with a garbled diff. This is a Scriptorium/BEAM concurrency+rendering gap
-  (Scriptorium PRs #13/#15); revert to plain parallel `runTests` once they release — tracked in
-  issue #54.
+
+The BEAM `testSequenced` workaround is **gone** (issue #54 closed): Quill 0.5.1 (Unicode output on
+BEAM, Scriptorium #14) and Nib 0.4.1 (char-level diffs on BEAM, #15) fixed the garbled-diff failures,
+so `test/beam/Main.fs` runs the three suites with plain parallel `runTests` like the other targets.
 
 **Python tripwire on the next `fable-library-py` bump.** The Fable team is fixing Python reflection to
 report the *pristine* F# field name (like BEAM) while keeping the snake_case runtime slot
@@ -150,7 +149,7 @@ One behavioral suite in `test/shared/` (`HandlerTests.fs`, `RoutingTests.fs`) is
 per-target projects — `test/python`, `test/js`, `test/beam` — each supplying its own `TestContext.fs`
 (a `TestContext.create` factory building an isolated context without a real server) and a thin
 `Main.fs` entry point. `RemotingTests.fs` runs on all three targets as of Fable 5.13.0 (see the
-Remoting note below for the two BEAM-specific caveats: `toWireKey` and the `testSequenced` runner).
+Remoting note below for the remaining BEAM-specific caveat: `toWireKey`).
 
 Tests are written with [Scriptorium](https://github.com/fable-hub/Scriptorium) — Quill for the test
 DSL and runner, Nib for assertions — both of which compile to all three targets. `test/shared/Helpers.fs`
