@@ -22,11 +22,29 @@ visible until fixed.
 
 ## BEAM DI / logging
 
-- [ ] **Behavioral verification of BEAM DI + logging** — the wiring is in place and compiles
-      (`GiraffeHandler` now receives `(handler, services)` + `SetServices`; `UseBeamLogging`
-      via `Fable.Logging.Beam`), but no test exercises `GetService`. Add a cross-target DI
-      test (register a service in each `TestContext.create`, resolve it in a handler) so the
-      DI path is actually covered on Python/JS/BEAM. `test/shared/`, `test/*/TestContext.fs`.
+- [ ] **BEAM `GetService` is broken across Cowboy's per-request process** — CONFIRMED, not
+      just unverified. Cowboy spawns a fresh process per request, and Fable compiles a class
+      with mutable fields to a process-dictionary ref (see the `fable_utils:field_get` /
+      `iface_get` comments in fable-library-beam: "process-dict ref … single-process"). The
+      `ServiceCollection` built in the builder process therefore reads back as `undefined`
+      inside the request process, and a handler calling `ctx.GetService<ILogger>()` dies with
+      `{badmap,undefined}` at `map_get(field_services, undefined)` → 500. Every Fable.Logging
+      logger is likewise a mutable class, so an `ILogger` cannot be passed through Cowboy
+      handler state either — this is why `GiraffeHandler` takes an `accessLogEnabled: bool`
+      and emits through OTP's global `logger` rather than carrying an `ILogger`.
+      Fixing DI needs a process-portable service representation (an immutable map, an ETS
+      table, or a named process), not just a test. `src/Helpers.fs`, `src/beam/Middleware.fs`.
+- [ ] **Cross-target DI test** — no test exercises `GetService` on any target, which is why
+      the above went unnoticed. Add one (register a service in each `TestContext.create`,
+      resolve it in a handler); note it will only reproduce the BEAM failure if the resolve
+      happens in a different process than the registration, as it does under Cowboy.
+      `test/shared/`, `test/*/TestContext.fs`.
+- [ ] **BEAM access log bypasses `ILoggerProvider`** — `GiraffeHandler` calls OTP `logger`
+      directly, so a custom provider registered via `ConfigureLogging` does not receive the
+      access log (its minimum level *is* honoured — the gate is an `IsEnabled` evaluated in
+      the builder process at `Build` time). Behaviourally identical for
+      `Fable.Logging.Beam`, which itself emits to OTP `logger`. Resolves once services are
+      process-portable.
 
 ## Feature parity (Python-only today)
 

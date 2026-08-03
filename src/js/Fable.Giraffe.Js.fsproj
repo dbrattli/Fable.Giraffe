@@ -36,7 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.2.0" />
-    <PackageReference Include="Fable.Logging" Version="0.12.7" />
+    <PackageReference Include="Fable.Logging" Version="0.12.8" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="*.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />

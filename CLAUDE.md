@@ -132,6 +132,25 @@ wire-key mapping mirroring BEAM's `toWireKey` (pristine → snake_case slot), or
 pristine name. The Python remoting tests use single-word PascalCase fields, which mangle to
 themselves, so they will *not* catch it — add a multi-word field first.
 
+### Logging
+
+All three backends wire `Fable.Logging` through the shared `src/Logging.fs`, opt-in per target:
+`UseStructlog()` (Python), `UseConsoleLogging()` (JS), `UseBeamLogging()` (BEAM). Python and BEAM
+also emit a per-request access log gated on `LogLevel.Debug`; JS does not.
+
+**BEAM: objects cannot cross the Cowboy request boundary.** Cowboy spawns a fresh process per
+request, and Fable compiles a class with mutable fields to a *process-dictionary ref* — so any
+such object built in the builder process reads back as `undefined` inside the request process
+(`{badmap,undefined}`). This rules out passing an `ILogger` (or any Fable.Logging object) through
+Cowboy handler state. `GiraffeHandler` therefore receives `accessLogEnabled: bool` — an
+`IsEnabled LogLevel.Debug` evaluated once in `WebHost.Build`, which is sound because `Build`
+starts the listener and no `ConfigureLogging` can follow it — and emits via OTP's global `logger`,
+where `Fable.Logging.Beam`'s provider sends its output anyway. The cost is that a *custom*
+provider won't see the access log.
+
+The same constraint breaks `ctx.GetService` on BEAM (`ServiceCollection` is equally ref-backed);
+see FOLLOWUPS.md. Nothing in the suite covers it, since the tests bypass `GiraffeHandler`.
+
 ### Build System
 
 - `Justfile` - Build targets (replaces the old FAKE-based Build.fs)

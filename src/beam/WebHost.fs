@@ -92,11 +92,24 @@ type WebHostBuilder() =
                 // once in its middleware constructor).
                 let func: HttpFunc = h earlyReturn
 
-                // Catch-all: every remaining path → middleware module with the composed pipeline
-                // AND the services collection as state, so the request handler can resolve services
-                // (logger, etc.) off the context via GetService.
+                // Access-log gate, resolved to a plain bool HERE rather than passed as an ILogger.
+                // Cowboy spawns a fresh process per request, and Fable compiles a class with
+                // mutable fields (which every Fable.Logging logger is) to a process-dictionary
+                // ref — so a logger built in this process reads back as `undefined` inside the
+                // request process. A bool is a plain term and crosses the boundary intact.
+                //
+                // Evaluating IsEnabled once is safe because the factory's minimum level is fixed
+                // by the time Build runs: Build starts the listener, so no ConfigureLogging call
+                // can follow it. With no provider registered this is false and the access log
+                // costs nothing. GiraffeHandler then emits through OTP's global `logger`, which
+                // is exactly where Fable.Logging.Beam's provider sends its own output.
+                let accessLogEnabled =
+                    (loggerFactory.CreateLogger("GiraffeHandler")).IsEnabled LogLevel.Debug
+
+                // Catch-all: every remaining path → middleware module with the composed pipeline,
+                // the services collection and the access-log gate as state.
                 let catchAllRoute =
-                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (func, services)
+                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (func, services, accessLogEnabled)
 
                 let hostRule =
                     CowboyRouter.hostRule CowboyRouter.wildcard (staticRoutes @ [ catchAllRoute ])

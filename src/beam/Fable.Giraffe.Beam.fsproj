@@ -37,7 +37,7 @@
     <PackageReference Include="Fable.Core" Version="5.2.0" />
     <PackageReference Include="Fable.Beam" Version="5.0.0-rc.34" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
-    <PackageReference Include="Fable.Logging" Version="0.12.7" />
-    <PackageReference Include="Fable.Logging.Beam" Version="0.12.7" />
+    <PackageReference Include="Fable.Logging" Version="0.12.8" />
+    <PackageReference Include="Fable.Logging.Beam" Version="0.12.8" />
   </ItemGroup>
 </Project>
