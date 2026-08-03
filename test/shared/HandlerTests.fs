@@ -7,6 +7,7 @@ open Scriptorium.Nib.Assertion
 open type Scriptorium.Quill.Test
 
 open Fable.Giraffe
+open Fable.Giraffe.Json
 
 // ---------------------------------
 // Test Types
@@ -27,12 +28,10 @@ let tests =
     testList (
         "Handlers",
         [ testAsync (
+              // Ran on Python only until the three hand-written serializers were replaced by
+              // TypedJson: `json.dumps` added ", "/": " spacing, `JSON.stringify` was compact,
+              // and jsx differed again. One serializer, one output, so this now runs everywhere.
               "GET \"/json\" returns json object",
-              // JSON formatting diverges from the Python reference on both targets: JS
-              // `JSON.stringify` is compact where Python's `json.dumps` adds ", "/": "
-              // spacing, and the BEAM jsx serializer differs again. Cross-target JSON parity
-              // is tracked separately.
-              skipIfJavaScript >> skipIfBeam,
               fun _ ->
                   toAsync (
                       task {
@@ -47,8 +46,14 @@ let tests =
                                         >=> json { foo = "john"; bar = "doe"; age = 30 }
                                         setStatusCode 404 >=> text "Not found" ]
 
+                          // Built via `serialize`, not a literal. The three backends agree on
+                          // field *names* now, but not on bytes: Python's `json.dumps` adds
+                          // ", "/": " spacing, and Erlang maps have no insertion order, so BEAM
+                          // emits keys in term order. Byte-identical output is therefore not
+                          // achievable, and not what matters — that the handler writes exactly
+                          // what the serializer produces, on every backend, is.
                           let expected =
-                              "{\"foo\": \"john\", \"bar\": \"doe\", \"age\": 30}"
+                              serialize { foo = "john"; bar = "doe"; age = 30 }
                               |> Encoding.UTF8.GetBytes
 
                           let! result = app next testCtx
@@ -389,6 +394,64 @@ let tests =
                           match result with
                           | None -> failwith $"Result was expected to be {expected}"
                           | Some _ -> assertThat (readBody ()) (isEqualTo expected)
+                      }
+                  )
+          )
+
+          // The FastAPI-shaped path: a body that does not fit the type is answered rather than
+          // thrown, with a per-field error list. `bindJson` still throws — this is additive.
+          testAsync (
+              "validateJson binds a well-formed body",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let body = serialize { foo = "john"; bar = "doe"; age = 30 }
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/bind", method = "POST", body = body)
+
+                          let app =
+                              choose
+                                  [ route "/bind"
+                                    >=> validateJson<Dummy> (fun d -> text d.foo) ]
+
+                          let expected = "john" |> Encoding.UTF8.GetBytes
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some _ -> assertThat (readBody ()) (isEqualTo expected)
+                      }
+                  )
+          )
+
+          testAsync (
+              "validateJson answers 422 when a field has the wrong type",
+              fun _ ->
+                  toAsync (
+                      task {
+                          // `age` is an int; a non-numeric string cannot be coerced to one.
+                          let body = """{"foo":"john","bar":"doe","age":"not a number"}"""
+
+                          let testCtx, readBody =
+                              TestContext.create (path = "/bind", method = "POST", body = body)
+
+                          let app =
+                              choose
+                                  [ route "/bind"
+                                    >=> validateJson<Dummy> (fun d -> text d.foo) ]
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith "Result was expected to be a 422 response"
+                          | Some ctx ->
+                              assertThat ctx.Response.StatusCode (isEqualTo 422)
+
+                              // The offending field is named, which is the whole point of
+                              // answering rather than throwing.
+                              let payload = readBody () |> Encoding.UTF8.GetString
+                              assertThat (payload.Contains "age") isTrue
                       }
                   )
           ) ]

@@ -11,6 +11,10 @@
     <Description>Giraffe for Fable BEAM (Cowboy)</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson/Fable.TypedJson.fsproj" />
+    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson.Beam/Fable.TypedJson.Beam.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
@@ -37,6 +41,7 @@
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.2.0" />
     <PackageReference Include="Fable.Beam" Version="5.0.0-rc.34" />
+    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0-rc.8" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
     <PackageReference Include="Fable.Logging" Version="1.0.0" />
     <PackageReference Include="Fable.Logging.Beam" Version="1.0.0" />

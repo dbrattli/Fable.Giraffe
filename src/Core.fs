@@ -203,10 +203,50 @@ module Core =
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
+        // Built once, where the handler is composed — see the note on `json`.
+        let codec = Json.codec<'T> ()
+
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
-                let! model = ctx.BindJsonAsync<'T>()
-                return! f model next ctx
+                let! body = ctx.ReadBodyFromRequestAsync()
+
+                match codec.decode (Json.deserialize body) with
+                | Ok model -> return! f model next ctx
+                | Error errs -> return failwith (Fable.TypedJson.Schema.formatErrors errs)
+            }
+
+    /// <summary>
+    /// Parses a JSON payload into an instance of type 'T, answering <c>422 Unprocessable
+    /// Entity</c> with a per-field error list when the body does not fit.
+    /// </summary>
+    /// <remarks>
+    /// The FastAPI-shaped counterpart to <see cref="bindJson"/>, which throws. TypedJson
+    /// decodes to <c>Result&lt;'T, FieldError list&gt;</c> with a path per bad field, so the
+    /// client is told which field was wrong rather than just that something was.
+    ///
+    /// Additive rather than a change to <c>bindJson</c>: apps opt in where they want it.
+    /// </remarks>
+    /// <param name="f">A function which accepts an object of type 'T and returns a <see cref="HttpHandler"/> function.</param>
+    /// <typeparam name="'T"></typeparam>
+    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
+    let inline validateJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
+        let codec = Json.codec<'T> ()
+
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let! body = ctx.ReadBodyFromRequestAsync()
+
+                match codec.decode (Json.deserialize body) with
+                | Ok model -> return! f model next ctx
+                | Error errs ->
+                    let payload =
+                        errs
+                        |> List.map (fun e -> {| loc = e.path; msg = e.message |})
+
+                    ctx.SetStatusCode 422
+                    ctx.SetContentType "application/json; charset=utf-8"
+
+                    return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(serialize {| detail = payload |}))
             }
 
     /// <summary>
@@ -266,9 +306,17 @@ module Core =
     /// <param name="ctx"></param>
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
+    /// <remarks>
+    /// The value is serialized once, where the handler is composed, exactly as
+    /// <see cref="text"/> computes its bytes up front. That matters more than it used to:
+    /// a TypedJson codec costs ~193µs to ~1ms to build and there is no memo cache, so
+    /// building one per request would be a serious regression on this path. Handlers that
+    /// need per-request data should write the response from a handler lambda rather than
+    /// pre-applying <c>json</c>.
+    /// </remarks>
     let inline json<'T> (dataObj: 'T) : HttpHandler =
+        let bytes = Encoding.UTF8.GetBytes(serialize dataObj)
+
         fun (_: HttpFunc) (ctx: HttpContext) ->
-            let json = serialize dataObj
-            let bytes = Encoding.UTF8.GetBytes json
             ctx.SetContentType "application/json; charset=utf-8"
             ctx.WriteBytesAsync bytes

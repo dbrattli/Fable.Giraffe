@@ -29,12 +29,3 @@ module PlatformHelpers =
     let startAsTask (computation: Async<'T>) : Task<'T> =
         Async.StartAsPromise computation
         |> unbox<Task<'T>>
-
-    /// True when a JSON-decoded value is an object rather than a scalar or an array.
-    /// Drives the shared record-reconstruction recursion.
-    [<Emit("(typeof $0 === 'object' && $0 !== null && !Array.isArray($0))")>]
-    let isJsonObject (value: obj) : bool = nativeOnly
-
-    /// Read a member from a JSON-decoded object by name, or `null`/`undefined` when absent.
-    [<Emit("$0[$1]")>]
-    let getJsonMember (value: obj) (name: string) : obj = nativeOnly

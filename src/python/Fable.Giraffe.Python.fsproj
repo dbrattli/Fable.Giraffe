@@ -11,6 +11,10 @@
     <Description>Giraffe for Fable Python</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson/Fable.TypedJson.fsproj" />
+    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson.Python/Fable.TypedJson.Python.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />

@@ -138,15 +138,19 @@ type HttpContext(scope: Scope, receive: ReceiveAsync, send: SendAsync) =
             return bytes |> Encoding.UTF8.GetString
         }
 
+    /// <remarks>
+    /// Decodes through TypedJson rather than casting the parsed value. The old
+    /// <c>deserialize |&gt; unbox&lt;'T&gt;</c> handed back the raw parsed object — a Python
+    /// <c>dict</c>, not a record — so any field access on the result failed. Prefer
+    /// <c>Core.validateJson</c>, which answers 422 with the field errors instead of throwing.
+    /// </remarks>
     member inline x.BindJsonAsync<'T>() =
         task {
             let! body = x.Request.GetBodyAsync()
 
-            return
-                body
-                |> Encoding.UTF8.GetString
-                |> deserialize
-                |> unbox<'T>
+            match tryDeserialize<'T> (Encoding.UTF8.GetString body) with
+            | Ok value -> return value
+            | Error errs -> return failwith (Fable.TypedJson.Schema.formatErrors errs)
         }
 
     member x.ContinueWith(app: ASGIApp, next: HttpContext -> Task<unit>) =

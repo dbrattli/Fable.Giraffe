@@ -9,10 +9,15 @@ The shared suite (`test/shared/`) now runs on all three backends and surfaced th
 a documented `SKIP` in the relevant per-target runner (`test/<target>/Main.fs`) so it stays
 visible until fixed.
 
-- [ ] **JSON serialization parity** — JS (`JSON.stringify`) and BEAM (jsx) emit compact JSON;
-      Python's `json.dumps` adds `", "` / `": "` spacing. The `GET /json` case is skipped on
-      JS and BEAM. Also blocks a shared `Remoting` (below). Define one JSON contract + add
-      union/option round-trip tests across targets. Touches `src/*/Json.fs`.
+- [x] **JSON serialization parity** — LARGELY FIXED by adopting Fable.TypedJson as the
+      serializer. All three backends now derive wire keys from one rule (camelCase), so the
+      same record no longer reaches the wire as `Description` on JS and `description` on
+      Python/BEAM. `GET /json` runs on all three targets again.
+      **Byte-level parity is NOT achieved and is not achievable**: Python's `json.dumps` still
+      adds `", "` / `": "` spacing, and Erlang maps have no insertion order, so BEAM emits keys
+      in term order (`age, bar, foo`). The `GET /json` expectation is therefore built via
+      `serialize` rather than a literal. Compact separators on Python would be a reasonable
+      upstream change in `Fable.TypedJson.Python`; key order on BEAM cannot be fixed.
 - [ ] **`routef` typed captures on JS/BEAM** — `%O` (Guid), `%i`, `%u` diverge (`%s` works);
       the affected `routef` cases are skipped on JS and BEAM. Likely `FormatExpressions`
       parsing/conversion differences on those targets. `src/FormatExpressions.fs`.
@@ -62,9 +67,12 @@ visible until fixed.
 
 ## Feature parity (Python-only today)
 
-- [ ] **`Remoting` → shared** — `src/python/Remoting.fs` is reflection over F# records +
-      `HttpHandler` composition + JSON; mostly portable. Blocked on JSON parity above. Once
-      unified, move to `src/Remoting.fs` and link from all three fsprojs (like `Core.fs`).
+- [x] **`Remoting` → shared** — DONE earlier; and its hand-rolled argument reconstruction
+      (`convertJsonValue`, `MakeRecord` per field, `'T list` recursion) is now gone too,
+      replaced by one TypedJson codec per argument built from the reflected `System.Type`.
+      That removed the second implementation of the type walk, the per-backend key mapping
+      (BEAM's `toWireKey`), and the limitation that unions, options and maps passed through
+      unconverted.
 - [ ] **`StaticFiles` per target** — `src/python/StaticFiles.fs` wraps Starlette's static ASGI
       app, so it's inherently Python. Needs per-backend implementations: BEAM → `cowboy_static`,
       JS → Node/Connect static handler (`express.static` / a small `http` handler).

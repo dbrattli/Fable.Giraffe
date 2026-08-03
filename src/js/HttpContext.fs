@@ -132,13 +132,16 @@ type HttpContext(req: IncomingMessage, res: ServerResponse, services: ServiceCol
             return bytes |> Encoding.UTF8.GetString
         }
 
+    /// <remarks>
+    /// Decodes through TypedJson rather than casting the parsed value. The old
+    /// <c>deserialize |&gt; unbox&lt;'T&gt;</c> handed back the raw parsed object, not a record.
+    /// Prefer <c>Core.validateJson</c>, which answers 422 with the field errors.
+    /// </remarks>
     member inline x.BindJsonAsync<'T>() =
         task {
             let! body = x.Request.GetBodyAsync()
 
-            return
-                body
-                |> Encoding.UTF8.GetString
-                |> deserialize
-                |> unbox<'T>
+            match tryDeserialize<'T> (Encoding.UTF8.GetString body) with
+            | Ok value -> return value
+            | Error errs -> return failwith (Fable.TypedJson.Schema.formatErrors errs)
         }

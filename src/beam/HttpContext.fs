@@ -123,12 +123,19 @@ type HttpContext(req: Req) =
             return body
         }
 
+    /// <remarks>
+    /// Decodes through TypedJson rather than casting the parsed value. The old
+    /// <c>deserialize |&gt; unbox&lt;'T&gt;</c> handed back the raw Erlang map, not a record.
+    /// Prefer <c>Core.validateJson</c>, which answers 422 with the field errors.
+    /// </remarks>
     member inline x.BindJsonAsync<'T>() =
         task {
             // Cowboy's read_body returns the body as a binary (string) already.
             let! body = x.Request.GetBodyAsync()
 
-            return body |> deserialize |> unbox<'T>
+            match tryDeserialize<'T> body with
+            | Ok value -> return value
+            | Error errs -> return failwith (Fable.TypedJson.Schema.formatErrors errs)
         }
 
     /// Set the services collection on this context (called by the middleware).
