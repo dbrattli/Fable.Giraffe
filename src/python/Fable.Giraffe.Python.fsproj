@@ -36,8 +36,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.2.0" />
-    <PackageReference Include="Fable.Logging" Version="0.12.8" />
-    <PackageReference Include="Fable.Logging.Structlog" Version="0.12.8" />
+    <PackageReference Include="Fable.Logging" Version="1.0.0" />
+    <PackageReference Include="Fable.Logging.Structlog" Version="1.0.0" />
     <PackageReference Include="Fable.Python" Version="5.4.0" />
   </ItemGroup>
   <ItemGroup>

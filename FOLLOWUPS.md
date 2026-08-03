@@ -40,24 +40,19 @@ visible until fixed.
       since neither can share a mutable *object*. Either document this as the contract
       (records, funs and object expressions are fine) or detect ref-valued services at
       registration and fail loudly at `Build` rather than per request. `src/beam/WebHost.fs`.
-- [ ] **BEAM access log bypasses `ILoggerProvider`** — the portable `ILogger` in
-      `src/beam/WebHost.fs` writes to OTP `logger` directly, so a custom provider registered
-      via `ConfigureLogging` does not receive the access log. Its minimum *level* is honoured
-      (`PortableLogger.effectiveLevel` probes `IsEnabled` at `Build`). Behaviourally identical
-      for `Fable.Logging.Beam`, which itself emits to OTP `logger`. Resolves if Fable.Logging
-      makes its loggers process-portable — see below.
-- [ ] **Upstream: make Fable.Logging loggers process-portable on BEAM** — `../Fable.Logging`.
-      Two separate asks:
-      (a) `Fable.Logging.Beam.Logger` has `member val MinimumLevel with get, set`, but
-      `LoggerProvider.CreateLogger` assigns it exactly once right after construction. Making it
-      a constructor parameter removes the only mutable field, so the class compiles to a
-      portable map. Small, no user-visible API change.
-      (b) The factory's own `Logger` mutates a `ResizeArray` of providers from
-      `ILoggerFactory.AddProvider`, which is what forces its ref. Fixing this means either
-      snapshotting providers at `CreateLogger` time (breaks late `AddProvider`) or documenting
-      factory loggers as process-local on BEAM.
-      With (a) and (b), `src/beam/WebHost.fs`'s hand-rolled `PortableLogger` can be deleted in
-      favour of `loggerFactory.CreateLogger`.
+- [x] **BEAM access log bypassed `ILoggerProvider`** — FIXED by Fable.Logging 1.0.0. The
+      hand-rolled `PortableLogger` wrote to OTP `logger` directly, so a custom provider never
+      saw the access log. `Build` now uses `loggerFactory.CreateLogger`, so provider dispatch
+      works normally.
+- [x] **Upstream: make Fable.Logging loggers process-portable on BEAM** — SHIPPED in
+      Fable.Logging 1.0.0 (`feat!: make loggers process-portable on the BEAM`, #40). Both asks
+      landed — `Fable.Logging.Beam.Logger` takes its level as a constructor parameter, and the
+      factory's `Logger` snapshots providers into an immutable list — plus a
+      `LoggerFactory.MinimumLevel` getter. `PortableLogger` and its `IsEnabled`-probing level
+      recovery are deleted. Written up in `../Fable.Logging/BEAM-PROCESS-PORTABLE-LOGGERS-PROMPT.md`.
+      **Breaking change to respect:** `AddProvider` no longer affects loggers already created,
+      so loggers must be created after configuration. `src/Logging.fs` documents where this
+      binds.
 - [ ] **DI test does not cover the process hop** — `test/shared/HandlerTests.fs` now covers
       `AddSingleton` → `ctx.GetService` on all three backends, but it bypasses
       `GiraffeHandler`, so registration and resolution share a process. Covering the real
