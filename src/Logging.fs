@@ -11,9 +11,8 @@ open Fable.Logging
 // per-target because it needs the builder's private loggerFactory/services fields —
 // it just forwards to this function.
 //
-// Currently linked by the Python and JS backends. BEAM joins once its DI/services are
-// wired into the Cowboy request handler (its GiraffeHandler does not yet set services on
-// the context) and it can be verified against the cross-target behavioral suite.
+// Linked by all three backends. BEAM's GiraffeHandler sets the services collection on the
+// context, so handlers there resolve the "Giraffe" logger via GetService like everywhere else.
 module Logging =
 
     let configure (loggerFactory: LoggerFactory) (services: ServiceCollection) (configureLogging: Action<ILoggingBuilder>) =
