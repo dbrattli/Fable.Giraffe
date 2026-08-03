@@ -8,4 +8,8 @@ open type Scriptorium.Quill.Runner
 // across Fable versions.
 [<EntryPoint>]
 let main _ =
-    runTests [ HandlerTests.tests; RoutingTests.tests; RemotingTests.tests ]
+    runTests
+        [ HandlerTests.tests
+          RoutingTests.tests
+          EndpointTests.tests
+          RemotingTests.tests ]
