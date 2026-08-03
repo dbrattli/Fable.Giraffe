@@ -165,13 +165,17 @@ Two consequences, both handled in `src/beam`:
   and `src/HttpContextExtensions.fs` are untouched. It makes the *container* portable, not the
   values: a registered service that is itself a mutable class is still a dead ref. On BEAM,
   register immutable values.
-- **Logging.** `PortableLogger` (in `src/beam/WebHost.fs`) is an object expression closing over a
-  category name and a `LogLevel`, writing to OTP's global `logger`. `Build` registers it in place
-  of the ref-backed one `Logging.configure` added, and uses a second instance for the access log.
-  The effective level is recovered by probing `IsEnabled` at `Build` — the factory exposes no
-  getter, and `Build` is terminal, so no later `ConfigureLogging` can invalidate it. The cost is
-  that a *custom* provider does not receive these lines; upstream fixes that would remove
-  `PortableLogger` entirely are listed in FOLLOWUPS.md.
+- **Logging.** Nothing special is needed as of **Fable.Logging 1.0.0**, which made its loggers
+  process-portable (they hold no mutable state and snapshot the factory's providers at creation).
+  `Build` just calls `loggerFactory.CreateLogger` for the access log, and the `"Giraffe"` logger
+  `Logging.configure` registers travels in the snapshot like any other service. Fable.Giraffe
+  briefly carried its own object-expression `PortableLogger` for this; it is gone, and with it the
+  limitation that a custom `ILoggerProvider` never saw the access log.
+
+  One ordering constraint follows from that upstream change: a logger snapshots providers and
+  level when created, and `AddProvider` no longer reaches back into loggers already handed out. So
+  loggers must be created *after* configuration — `Logging.configure` re-registers on every
+  `ConfigureLogging` call, and `Build` creates the access logger last. See `src/Logging.fs`.
 
 The shared suite covers `AddSingleton` → `ctx.GetService`, but it bypasses `GiraffeHandler`, so it
 does **not** cover the process hop. Verify that by running `just app-beam`.
