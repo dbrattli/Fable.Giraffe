@@ -138,18 +138,43 @@ All three backends wire `Fable.Logging` through the shared `src/Logging.fs`, opt
 `UseStructlog()` (Python), `UseConsoleLogging()` (JS), `UseBeamLogging()` (BEAM). Python and BEAM
 also emit a per-request access log gated on `LogLevel.Debug`; JS does not.
 
-**BEAM: objects cannot cross the Cowboy request boundary.** Cowboy spawns a fresh process per
-request, and Fable compiles a class with mutable fields to a *process-dictionary ref* — so any
-such object built in the builder process reads back as `undefined` inside the request process
-(`{badmap,undefined}`). This rules out passing an `ILogger` (or any Fable.Logging object) through
-Cowboy handler state. `GiraffeHandler` therefore receives `accessLogEnabled: bool` — an
-`IsEnabled LogLevel.Debug` evaluated once in `WebHost.Build`, which is sound because `Build`
-starts the listener and no `ConfigureLogging` can follow it — and emits via OTP's global `logger`,
-where `Fable.Logging.Beam`'s provider sends its output anyway. The cost is that a *custom*
-provider won't see the access log.
+### BEAM: what can cross the Cowboy request boundary
 
-The same constraint breaks `ctx.GetService` on BEAM (`ServiceCollection` is equally ref-backed);
-see FOLLOWUPS.md. Nothing in the suite covers it, since the tests bypass `GiraffeHandler`.
+Cowboy spawns a **fresh process per request**, and BEAM processes share nothing. The rule Fable
+applies is precise and worth internalising, because it decides what may be put into Cowboy
+handler state:
+
+> A class with **any** mutable field compiles to a **process-dictionary ref**; a class without one
+> compiles to a **plain map**.
+
+Compare the generated `service_collection_ctor` (has `member val Services with get, set` → calls
+`make_ref`) with `string_values_ctor` (no mutable fields → `#{field_strings => ...}`). A ref read
+from a *different* process yields `undefined`, and the next field access dies with
+`{badmap,undefined}` — a 500 with no obvious connection to the cause.
+
+Portable: records, unions, lists, tuples, funs, and **object expressions** (they compile to
+self-contained maps of funs — but only if they close over immutable data, not a ref).
+Not portable: any class with mutable fields, `Dictionary`, `ResizeArray`, and therefore every
+Fable.Logging logger and `ServiceCollection` itself.
+
+Two consequences, both handled in `src/beam`:
+
+- **Services.** `WebHost.Build` snapshots the collection to a `(string * ServiceDescriptor) list`
+  and `GiraffeHandler` rebuilds a `ServiceCollection` from it per request, in the process that
+  reads it. This keeps `RequestServices` typed as `ServiceCollection`, so shared `src/Helpers.fs`
+  and `src/HttpContextExtensions.fs` are untouched. It makes the *container* portable, not the
+  values: a registered service that is itself a mutable class is still a dead ref. On BEAM,
+  register immutable values.
+- **Logging.** `PortableLogger` (in `src/beam/WebHost.fs`) is an object expression closing over a
+  category name and a `LogLevel`, writing to OTP's global `logger`. `Build` registers it in place
+  of the ref-backed one `Logging.configure` added, and uses a second instance for the access log.
+  The effective level is recovered by probing `IsEnabled` at `Build` — the factory exposes no
+  getter, and `Build` is terminal, so no later `ConfigureLogging` can invalidate it. The cost is
+  that a *custom* provider does not receive these lines; upstream fixes that would remove
+  `PortableLogger` entirely are listed in FOLLOWUPS.md.
+
+The shared suite covers `AddSingleton` → `ctx.GetService`, but it bypasses `GiraffeHandler`, so it
+does **not** cover the process hop. Verify that by running `just app-beam`.
 
 ### Build System
 

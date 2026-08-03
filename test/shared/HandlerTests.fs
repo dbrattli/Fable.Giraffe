@@ -14,6 +14,11 @@ open Fable.Giraffe
 
 type Dummy = { foo: string; bar: string; age: int }
 
+/// Resolved out of the service collection by the DI test below. A record so it is an
+/// immutable value on every backend — on BEAM a service that is a class with mutable fields
+/// is a process-dictionary ref and cannot be shared across processes at all.
+type Greeter = { Greeting: string }
+
 // ---------------------------------
 // Tests
 // ---------------------------------
@@ -350,6 +355,40 @@ let tests =
                           | None -> failwith "It was expected that the request would be redirected"
                           | Some ctx -> assertThat ctx.Response.StatusCode (isEqualTo 301)
                       // TODO: ctx.Response.Headers
+                      }
+                  )
+          )
+
+          // Covers the DI surface itself (AddSingleton -> ctx.GetService) on all three backends.
+          // It does NOT cover BEAM's real failure mode: under Cowboy the collection is built in
+          // the builder process and read in a per-request one, and a ServiceCollection is a
+          // process-dictionary ref that cannot cross that boundary. GiraffeHandler carries a
+          // portable snapshot and rebuilds the collection per request to fix that, but this test
+          // bypasses GiraffeHandler entirely, so registration and resolution share a process
+          // here. The cross-process path is exercised by running the example app.
+          testAsync (
+              "ctx.GetService resolves a registered singleton",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let services = ServiceCollection()
+                          services.AddSingleton<Greeter> { Greeting = "Hello from DI" }
+
+                          let testCtx, readBody = TestContext.create (path = "/di", services = services)
+
+                          let app =
+                              choose
+                                  [ route "/di"
+                                    >=> fun next ctx -> text (ctx.GetService<Greeter>()).Greeting next ctx
+                                    setStatusCode 404 >=> text "Not found" ]
+
+                          let expected = "Hello from DI" |> Encoding.UTF8.GetBytes
+
+                          let! result = app next testCtx
+
+                          match result with
+                          | None -> failwith $"Result was expected to be {expected}"
+                          | Some _ -> assertThat (readBody ()) (isEqualTo expected)
                       }
                   )
           ) ]

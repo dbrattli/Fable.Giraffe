@@ -20,10 +20,11 @@ module private BeamFakes =
 type TestContext =
 
     static member create
-        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string)
+        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string, ?services: ServiceCollection)
         : HttpContext * (unit -> byte[]) =
         let _method = defaultArg method "GET"
         let _path = defaultArg path "/"
         let _body = defaultArg body ""
         let ctx = HttpContext(BeamFakes.makeReq _method _path _body)
+        ctx.SetServices(defaultArg services (ServiceCollection()))
         ctx, (fun () -> ctx.Response.Body)

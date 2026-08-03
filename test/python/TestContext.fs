@@ -13,11 +13,11 @@ open Fable.Giraffe
 type TestContext =
 
     static member create
-        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string)
+        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string, ?services: ServiceCollection)
         : HttpContext * (unit -> byte[]) =
         let _method = defaultArg method "GET"
         let _path = defaultArg path "/"
-        let services = ServiceCollection()
+        let services = defaultArg services (ServiceCollection())
 
         let _headers =
             defaultArg headers (HeaderDictionary())
