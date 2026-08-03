@@ -3,10 +3,10 @@ namespace Fable.Giraffe
 open System.Threading.Tasks
 open Fable.Core
 open Fable.Beam.Cowboy.CowboyReq
+open Fable.Logging
 
 module CowboyReq = Fable.Beam.Cowboy.CowboyReq
 module CowboyHandler = Fable.Beam.Cowboy.CowboyHandler
-module Logger = Fable.Beam.Logger
 
 /// Cowboy handler module.
 /// Implements init/2 which:
@@ -28,46 +28,57 @@ module GiraffeHandler =
     /// The Cowboy handler init callback.
     /// Called for every incoming request.
     let init (req: Req) (state: obj) : obj =
-        // State is (func, services, accessLogEnabled) — the pipeline is composed once in
+        // State is (func, serviceSnapshot, logger) — the pipeline is composed once in
         // WebHost.Build, so init/2 (called by Cowboy for every request) does no per-request
-        // handler composition. `accessLogEnabled` is a bool rather than an ILogger on purpose:
+        // handler composition.
+        //
         // Cowboy runs every request in a fresh process, and Fable compiles a class with mutable
-        // fields to a process-dictionary ref, so a logger object built in the builder process
-        // reads back as `undefined` here. See the note in WebHost.Build.
-        let func, services, accessLogEnabled =
-            state :?> (HttpFunc * ServiceCollection * bool)
+        // fields to a process-dictionary ref — so neither a ServiceCollection nor a
+        // Fable.Logging logger built in the builder process can be read here. Hence a plain list
+        // of (key, descriptor) pairs plus an object-expression logger, both ordinary terms.
+        let func, serviceSnapshot, logger =
+            state :?> (HttpFunc * (string * ServiceDescriptor) list * ILogger)
 
-        // Create the HttpContext wrapping the Cowboy request and give it the services
-        // collection. NOTE: resolving off it via GetService does NOT currently work on BEAM —
-        // ServiceCollection is ref-backed for the same reason as the logger above, so
-        // `ctx.GetService<_>()` dies with {badmap,undefined} in this process. Tracked in
-        // FOLLOWUPS.md; the assignment stays so the fix is a change of representation only.
+        // Rebuild the service collection HERE, so its backing ref belongs to this process and
+        // ctx.GetService<_>() resolves. Cheap: a handful of entries, and only the dictionary is
+        // rebuilt — the registered instances are shared, not copied.
+        let services = ServiceCollection()
+
+        for key, descriptor in serviceSnapshot do
+            services.Services[key] <- descriptor
+
         let ctx = HttpContext(req)
         ctx.SetServices(services)
 
         // Only read the clock when the access log will actually be emitted; otherwise this is a
         // per-request BIF call on the hot path for nothing.
-        let start = if accessLogEnabled then monotonicTimeUs () else 0L
+        let logging = logger.IsEnabled LogLevel.Debug
+        let start = if logging then monotonicTimeUs () else 0L
 
         // Run the handler pipeline synchronously.
         // On BEAM, Task CE is a CPS alias for Async — identity cast.
         let _result = func ctx |> taskToAsync |> Async.RunSynchronously
 
-        if accessLogEnabled then
+        if logging then
             let elapsedMs = double (monotonicTimeUs () - start) / 1000.0
-            let statusCode = ctx.Response.StatusCode
-            let path = defaultArg ctx.Request.Path ""
-
-            // Same shape as the Python backend's access log, pre-rendered: OTP's logger is a
-            // global service reachable from any process, unlike the ILogger object graph.
-            let message =
-                $"Giraffe returned %d{statusCode} for %s{ctx.Request.Protocol} %s{ctx.Request.Method} "
-                + $"at %s{path} in %.3f{elapsedMs} ms"
 
             // Status -> level mirrors the Python backend: 2xx info, 3xx/4xx error, 5xx critical.
-            if statusCode < 300 then Logger.logger.info message
-            elif statusCode < 500 then Logger.logger.error message
-            else Logger.logger.critical message
+            let logLevel =
+                match ctx.Response.StatusCode with
+                | code when code < 300 -> LogLevel.Information
+                | code when code < 500 -> LogLevel.Error
+                | _ -> LogLevel.Critical
+
+            logger.Log(
+                logLevel,
+                "Giraffe returned {Status} for {HttpProtocol} {HttpMethod} at {Path} in {ElapsedMs}",
+                parameters =
+                    [| ctx.Response.StatusCode :> obj
+                       ctx.Request.Protocol
+                       ctx.Request.Method
+                       defaultArg ctx.Request.Path ""
+                       elapsedMs |]
+            )
 
         // Send the response via cowboy_req:reply/4.
         // Always use reply/4 — Cowboy handles empty iolist body ([]) fine.

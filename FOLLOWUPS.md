@@ -22,29 +22,48 @@ visible until fixed.
 
 ## BEAM DI / logging
 
-- [ ] **BEAM `GetService` is broken across Cowboy's per-request process** — CONFIRMED, not
-      just unverified. Cowboy spawns a fresh process per request, and Fable compiles a class
-      with mutable fields to a process-dictionary ref (see the `fable_utils:field_get` /
-      `iface_get` comments in fable-library-beam: "process-dict ref … single-process"). The
-      `ServiceCollection` built in the builder process therefore reads back as `undefined`
-      inside the request process, and a handler calling `ctx.GetService<ILogger>()` dies with
-      `{badmap,undefined}` at `map_get(field_services, undefined)` → 500. Every Fable.Logging
-      logger is likewise a mutable class, so an `ILogger` cannot be passed through Cowboy
-      handler state either — this is why `GiraffeHandler` takes an `accessLogEnabled: bool`
-      and emits through OTP's global `logger` rather than carrying an `ILogger`.
-      Fixing DI needs a process-portable service representation (an immutable map, an ETS
-      table, or a named process), not just a test. `src/Helpers.fs`, `src/beam/Middleware.fs`.
-- [ ] **Cross-target DI test** — no test exercises `GetService` on any target, which is why
-      the above went unnoticed. Add one (register a service in each `TestContext.create`,
-      resolve it in a handler); note it will only reproduce the BEAM failure if the resolve
-      happens in a different process than the registration, as it does under Cowboy.
-      `test/shared/`, `test/*/TestContext.fs`.
-- [ ] **BEAM access log bypasses `ILoggerProvider`** — `GiraffeHandler` calls OTP `logger`
-      directly, so a custom provider registered via `ConfigureLogging` does not receive the
-      access log (its minimum level *is* honoured — the gate is an `IsEnabled` evaluated in
-      the builder process at `Build` time). Behaviourally identical for
-      `Fable.Logging.Beam`, which itself emits to OTP `logger`. Resolves once services are
-      process-portable.
+- [x] **BEAM `GetService` across Cowboy's per-request process** — FIXED. Cowboy spawns a fresh
+      process per request, and Fable compiles a class with *any* mutable field to a
+      process-dictionary ref (a class without one compiles to a plain map — compare the
+      generated `service_collection_ctor`, which calls `make_ref`, with `string_values_ctor`,
+      which does not). Both the `ServiceCollection` and the `Dictionary` behind it are refs, so
+      the collection built in the builder process read back as `undefined` and
+      `ctx.GetService<_>()` died with `{badmap,undefined}` → 500.
+      `WebHost.Build` now snapshots the services to a `(string * ServiceDescriptor) list` — an
+      ordinary term — and `GiraffeHandler` rebuilds a collection from it per request, in the
+      process that reads it. Shared `src/Helpers.fs` and `src/HttpContextExtensions.fs` are
+      untouched, so Python and JS are unaffected.
+- [ ] **BEAM services must be immutable values** — the snapshot above makes the *container*
+      portable, not the values in it. A registered service that is itself a class with mutable
+      fields is still a dead ref on the far side, failing with the same `{badmap,undefined}`.
+      This is inherent to BEAM's shared-nothing model — ETS or a named process would not help,
+      since neither can share a mutable *object*. Either document this as the contract
+      (records, funs and object expressions are fine) or detect ref-valued services at
+      registration and fail loudly at `Build` rather than per request. `src/beam/WebHost.fs`.
+- [ ] **BEAM access log bypasses `ILoggerProvider`** — the portable `ILogger` in
+      `src/beam/WebHost.fs` writes to OTP `logger` directly, so a custom provider registered
+      via `ConfigureLogging` does not receive the access log. Its minimum *level* is honoured
+      (`PortableLogger.effectiveLevel` probes `IsEnabled` at `Build`). Behaviourally identical
+      for `Fable.Logging.Beam`, which itself emits to OTP `logger`. Resolves if Fable.Logging
+      makes its loggers process-portable — see below.
+- [ ] **Upstream: make Fable.Logging loggers process-portable on BEAM** — `../Fable.Logging`.
+      Two separate asks:
+      (a) `Fable.Logging.Beam.Logger` has `member val MinimumLevel with get, set`, but
+      `LoggerProvider.CreateLogger` assigns it exactly once right after construction. Making it
+      a constructor parameter removes the only mutable field, so the class compiles to a
+      portable map. Small, no user-visible API change.
+      (b) The factory's own `Logger` mutates a `ResizeArray` of providers from
+      `ILoggerFactory.AddProvider`, which is what forces its ref. Fixing this means either
+      snapshotting providers at `CreateLogger` time (breaks late `AddProvider`) or documenting
+      factory loggers as process-local on BEAM.
+      With (a) and (b), `src/beam/WebHost.fs`'s hand-rolled `PortableLogger` can be deleted in
+      favour of `loggerFactory.CreateLogger`.
+- [ ] **DI test does not cover the process hop** — `test/shared/HandlerTests.fs` now covers
+      `AddSingleton` → `ctx.GetService` on all three backends, but it bypasses
+      `GiraffeHandler`, so registration and resolution share a process. Covering the real
+      Cowboy topology needs a test that drives `GiraffeHandler.init` itself (fake `Req` plus a
+      stub for `cowboy_req:reply`), or an integration test against a live listener. Until then
+      the cross-process path is verified by running `just app-beam`.
 
 ## Feature parity (Python-only today)
 

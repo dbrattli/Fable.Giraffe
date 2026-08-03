@@ -24,7 +24,7 @@ module private JsFakes =
 type TestContext =
 
     static member create
-        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string)
+        (?method: string, ?path: string, ?status: int, ?headers: HeaderDictionary, ?body: string, ?services: ServiceCollection)
         : HttpContext * (unit -> byte[]) =
         let _method = defaultArg method "GET"
         let _path = defaultArg path "/"
@@ -41,5 +41,5 @@ type TestContext =
 
         let req = JsFakes.makeReq _method _body _path headersObj
         let res = JsFakes.makeRes ()
-        let ctx = HttpContext(req, res, ServiceCollection())
+        let ctx = HttpContext(req, res, defaultArg services (ServiceCollection()))
         ctx, (fun () -> JsFakes.capturedBody res)
