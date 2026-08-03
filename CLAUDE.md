@@ -106,6 +106,25 @@ where the handler is composed (as `text` already computed its bytes), `bindJson`
 argument and one per return type per method. Introducing a per-request `auto<'T> ()` would be a
 serious regression.
 
+**A TypedJson codec cannot cross Cowboy's per-request process boundary.** A codec closes over
+arrays, which Fable compiles to ref-backed structures on BEAM, so one built in the builder process
+reads back as `undefined` in the request process and dies inside `decodeRecordWith` with
+`erlang:length(undefined)` — a 500 with no obvious cause. So codecs used *at request time*
+(`bindJson`, `validateJson`, and both of Remoting's) are built **inside** the handler lambda, not
+hoisted, and that is load-bearing rather than an oversight. `Core.json` is the exception and may
+hoist, because it serializes up front and only an immutable string crosses.
+
+This is the same shared-nothing rule as `ServiceCollection` (see the BEAM section below), and the
+shared test suite cannot catch it — the tests never cross a process boundary. Verify with
+`just app-beam`. Until TypedJson grows process-portable plans or a codec cache, request-time
+decoding pays the ~193µs-1ms build per request.
+
+**Lowercase-first record fields are unusable on the wire.** Fable's BEAM `sanitizeFieldName`
+appends a trailing `_` to them, and no case rule can undo it — a `loc` field reaches the wire as
+`loc_` on BEAM and `loc` everywhere else. Name record fields PascalCase; they mangle to themselves
+and the camelCase rule then produces clean keys on every backend. `ValidationError` /
+`ValidationProblem` in `src/Core.fs` are named this way for exactly this reason.
+
 `Core.validateJson<'T>` is the FastAPI-shaped counterpart to `bindJson`: on a body that does not
 fit the type it answers **422** with `{"detail": [{"loc": ..., "msg": ...}]}` from TypedJson's
 `Result<'T, FieldError list>`, instead of throwing. Additive — `bindJson` still throws.
@@ -162,6 +181,47 @@ report the *pristine* F# field name while keeping the snake_case runtime slot
 fields up by `PropertyInfo.Name` against a wire keyed by slot name, so the bump would have broken
 reconstruction silently. TypedJson's `Casing.toCanonicalPascal` normalises either spelling, and
 TypedJson's own test suite covers the multi-word case, so the bump is now a non-event here.
+
+### OpenAPI
+
+`src/OpenApi.fs` generates an OpenAPI 3.1 document from an `Endpoint list` and serves it. Opt-in,
+like the endpoint layer it reads:
+
+```fsharp
+let webApp =
+    endpoints
+    |> OpenApi.withDocs (OpenApiInfo.Create("My API", "1.0"))
+    |> Endpoints.toHandler
+```
+
+`withDocs` appends two endpoints — `/openapi.json` and a Scalar UI at `/docs` — and builds the
+document **once, at composition time**, closing over the rendered string. That is FastAPI's
+`app.openapi_schema` memoization done eagerly, and on BEAM it is what makes the spec work at all:
+an immutable string crosses Cowboy's process boundary where a lazily-populated cache could not.
+The two added endpoints are absent from the document they serve, because it is built before they
+are appended — FastAPI's `include_in_schema=False`, for free.
+
+`buildDocument` is a pure `Endpoint list -> JsonSchemaValue`, structured like FastAPI's
+`get_openapi(routes=...)`. Two passes, as there: every referenced type is resolved first so each
+schema lands once in `components/schemas`, then operations `$ref` them.
+
+The document is built as a `JsonSchemaValue` tree rather than F# records — it has keys like `$ref`
+and `application/json` that no record field could spell, and building it as data keeps it out of
+the case-rule machinery. Schemas come from TypedJson's `$ref` mode, off the same walk that builds
+the serializer's codec, so **the document cannot describe a property the wire does not carry**.
+
+Notes:
+
+- A route with no verb (`HttpVerb.ANY` — i.e. one not inside a `GET [...]`-style group) still
+  routes but is **absent from the document**: OpenAPI has no "any method" operation.
+- Path parameter names come from `Endpoints.pathParams`; `routef` templates carry none, so without
+  it they are named positionally (`p0`, `p1`). Adding `%s:name` to `FormatExpressions` is a
+  follow-up.
+- `OpenApi.paramSchema` holds the `char -> (type, format)` table. It mirrors
+  `FormatExpressions.formatStringMap`, which owns the *matching* side of the same characters but
+  carries no type information.
+- `responds<'T>` documents `application/json`. A handler that writes `text/plain` should use
+  `respondsWith<'T> code "text/plain"`, or the document will lie about it.
 
 ### Logging
 

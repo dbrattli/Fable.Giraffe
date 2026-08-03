@@ -65,6 +65,30 @@ visible until fixed.
       stub for `cowboy_req:reply`), or an integration test against a live listener. Until then
       the cross-process path is verified by running `just app-beam`.
 
+## OpenAPI / TypedJson
+
+- [ ] **TypedJson codecs are not process-portable on BEAM** — a codec closes over arrays, which
+      Fable lowers to ref-backed structures, so one built outside Cowboy's request process reads
+      back `undefined` and dies in `decodeRecordWith`. Worked around by building codecs inside the
+      request lambda (`bindJson`, `validateJson`, `Remoting`), which costs ~193µs-1ms per request.
+      Upstream fixes: make `Plan`'s `RecordPlan.Fields` / `CasePlan[]` process-portable (lists
+      rather than arrays), or add the memo cache `PROMPT-serializer-additions.md` already tracks.
+- [ ] **Publish Fable.TypedJson 5.0.0-rc.2 and switch to a PackageReference** — the three
+      `src/*/Fable.Giraffe.*.fsproj` currently carry a `ProjectReference` to `../Fable.TypedJson`,
+      so `just pack` produces a package that cannot restore. Also resolves the FSharp.Core
+      downgrade warning (TypedJson wants 11.0.100, Fable.Giraffe pins 10.1.301).
+- [ ] **`%s:name` path parameter names** — `routef` templates carry no names, so OpenAPI path
+      parameters are positional (`p0`) unless `Endpoints.pathParams` supplies them. Upstream
+      Giraffe.OpenApi supports `%s:firstName`; adding it here means touching the matcher, which
+      already has known `routef` divergences on JS/BEAM.
+- [ ] **Remoting is not in the OpenAPI document** — `src/Remoting.fs` already recovers argument and
+      return types via `getFunctionTypes`, so emitting `Endpoint`s (or operations) for a remoting
+      API is close to free now that the assembler exists.
+- [ ] **Compact JSON on Python** — `Fable.TypedJson.Python` uses `json.dumps` defaults, which add
+      `", "` / `": "`. Passing `separators=(",", ":")` would shrink payloads and bring Python in
+      line with JS and BEAM. (Key *order* on BEAM still cannot be made to match — Erlang maps have
+      no insertion order.)
+
 ## Feature parity (Python-only today)
 
 - [x] **`Remoting` → shared** — DONE earlier; and its hand-rolled argument reconstruction

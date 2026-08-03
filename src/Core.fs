@@ -12,6 +12,17 @@ type HttpFunc = HttpContext -> HttpFuncResult
 
 type HttpHandler = HttpFunc -> HttpFunc
 
+/// One entry of a 422 body: which field failed, and why.
+///
+/// Field names are PascalCase deliberately. Fable appends a trailing `_` to a lowercase-first
+/// record field on BEAM (`sanitizeFieldName`), and no case rule can undo that — a `loc` field
+/// reaches the wire as `loc_`. PascalCase names mangle to themselves, so the camelCase wire
+/// keys come out clean on every backend.
+type ValidationError = { Loc: string; Msg: string }
+
+/// The body `validateJson` writes on a 422, shaped like FastAPI's.
+type ValidationProblem = { Detail: ValidationError list }
+
 
 [<AutoOpen>]
 module Core =
@@ -203,11 +214,15 @@ module Core =
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
-        // Built once, where the handler is composed — see the note on `json`.
-        let codec = Json.codec<'T> ()
-
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
+                // Built per request, NOT hoisted to composition time. A codec is closures over
+                // arrays, which Fable compiles to ref-backed structures on BEAM, so one built in
+                // the builder process reads back as `undefined` in Cowboy's per-request process
+                // and dies in `decodeRecordWith`. Costs ~193µs-1ms per call until TypedJson
+                // grows a cache or process-portable plans. `json` is unaffected: it serializes
+                // up front and only an immutable string crosses.
+                let codec = Json.codec<'T> ()
                 let! body = ctx.ReadBodyFromRequestAsync()
 
                 match codec.decode (Json.deserialize body) with
@@ -230,23 +245,24 @@ module Core =
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline validateJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
-        let codec = Json.codec<'T> ()
-
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
+                // Per request, for the BEAM process-boundary reason given on `bindJson`.
+                let codec = Json.codec<'T> ()
                 let! body = ctx.ReadBodyFromRequestAsync()
 
                 match codec.decode (Json.deserialize body) with
                 | Ok model -> return! f model next ctx
                 | Error errs ->
-                    let payload =
-                        errs
-                        |> List.map (fun e -> {| loc = e.path; msg = e.message |})
+                    let problem =
+                        { Detail =
+                            errs
+                            |> List.map (fun e -> { Loc = e.path; Msg = e.message }) }
 
                     ctx.SetStatusCode 422
                     ctx.SetContentType "application/json; charset=utf-8"
 
-                    return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(serialize {| detail = payload |}))
+                    return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(serialize problem))
             }
 
     /// <summary>

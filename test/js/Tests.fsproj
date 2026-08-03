@@ -12,6 +12,7 @@
     <Compile Include="../shared/HandlerTests.fs" />
     <Compile Include="../shared/RoutingTests.fs" />
     <Compile Include="../shared/EndpointTests.fs" />
+    <Compile Include="../shared/OpenApiTests.fs" />
     <Compile Include="../shared/RemotingTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

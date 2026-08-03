@@ -10,4 +10,5 @@ let main _ =
         [ HandlerTests.tests
           RoutingTests.tests
           EndpointTests.tests
+          OpenApiTests.tests
           RemotingTests.tests ]

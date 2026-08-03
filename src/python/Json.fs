@@ -53,3 +53,22 @@ let deserialize (s: string) : obj = parseRaw s
 
 /// Decode into `'T`, accumulating a per-field error list rather than throwing.
 let inline tryDeserialize<'T> (s: string) : Result<'T, FieldError list> = (codec<'T> ()).decode (parseRaw s)
+
+// ---------------------------------------------------------------------------
+// Schema — the other face of the same walk
+// ---------------------------------------------------------------------------
+
+/// Render a `JsonSchemaValue` tree to JSON. Used to emit the OpenAPI document,
+/// which is built as a schema-value tree rather than as F# records: the document
+/// has keys like `$ref` and `application/json` that no record field could spell,
+/// and building it as data avoids running it through the case-rule machinery.
+let renderJson (value: JsonSchemaValue) : string =
+    Fable.TypedJson.JsonSchemaGen.schemaValueToJson python value
+
+/// The `$ref`-mode JSON Schema for a reflected type: its own fragment (a `$ref`
+/// for any record or union) plus every type reached beneath it, keyed by name.
+///
+/// Shares the case rule the serializer uses, so a property named here is one the
+/// wire actually carries.
+let schemaWithDefsFor (refPrefix: string) (t: System.Type) : JsonSchemaValue * Map<string, JsonSchemaValue> =
+    Fable.TypedJson.JsonSchemaGen.schemaValueWithDefsFor python emptyRegistry Map.empty CaseRules.LowerFirst refPrefix t

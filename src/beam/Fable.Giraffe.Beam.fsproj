@@ -28,6 +28,7 @@
     <Compile Include="../Endpoints.fs" Link="Endpoints.fs" />
     <Compile Include="../Remoting.fs" Link="Remoting.fs" />
     <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
+    <Compile Include="../OpenApi.fs" Link="OpenApi.fs" />
     <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
     <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
     <Compile Include="../Logging.fs" Link="Logging.fs" />

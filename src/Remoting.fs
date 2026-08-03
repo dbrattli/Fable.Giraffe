@@ -141,16 +141,20 @@ module RemotingHelpers =
                       let method = Signature.Create<_, _, _, _>(value, argumentTypes.Length)
                       let methodName = dashify "_" (field.Name.TrimEnd('_'))
 
-                      // Reflection is all there is here — there is no `'T` to capture — so
-                      // codecs are built from the `System.Type`s directly, once at composition
-                      // time rather than per request. The return type is the last element of
-                      // the uncurried signature.
-                      let responseCodec = codecFor functionTypes[functionTypes.Length - 1]
-                      let argCodecs = argumentTypes |> Array.map codecFor
+                      let returnType = functionTypes[functionTypes.Length - 1]
 
                       dashifyRoute $"/{methodName}"
                       >=> fun next ctx ->
                           task {
+                              // Codecs are built per request, not hoisted out of this lambda.
+                              // A codec closes over arrays, which Fable compiles to ref-backed
+                              // structures on BEAM, so one built in the builder process reads
+                              // back as `undefined` inside Cowboy's per-request process. The
+                              // shared test suite would not catch it — it never crosses a
+                              // process boundary — so this is load-bearing and not an oversight.
+                              let responseCodec = codecFor returnType
+                              let argCodecs = argumentTypes |> Array.map codecFor
+
                               let! argsResult =
                                   task {
                                       match argumentTypes with
