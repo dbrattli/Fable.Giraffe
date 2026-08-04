@@ -21,8 +21,10 @@
     <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
     <Compile Include="../Core.fs" Link="Core.fs" />
     <Compile Include="../Routing.fs" Link="Routing.fs" />
+    <Compile Include="../Endpoints.fs" Link="Endpoints.fs" />
     <Compile Include="../Remoting.fs" Link="Remoting.fs" />
     <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
+    <Compile Include="../OpenApi.fs" Link="OpenApi.fs" />
     <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
     <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
     <Compile Include="../Logging.fs" Link="Logging.fs" />
@@ -34,8 +36,17 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
+         Fable.TypedJson requires, which NU1605 reports as a downgrade. -->
+    <PackageReference Update="FSharp.Core" Version="11.0.100" />
     <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <!-- Core is 5.0.1 (the $ref-collision and date-parsing fixes); the backend
+         shims are unchanged since 5.0.0 and were not rebuilt. They resolve
+         against whichever core NuGet picks, which is the 5.0.1 requested here. -->
+    <PackageReference Include="Fable.TypedJson" Version="5.0.1" />
+    <PackageReference Include="Fable.TypedJson.Beam" Version="5.0.0" />
     <PackageReference Include="Fable.Beam" Version="5.0.0-rc.34" />
+    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0-rc.8" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
     <PackageReference Include="Fable.Logging" Version="1.0.0" />
     <PackageReference Include="Fable.Logging.Beam" Version="1.0.0" />

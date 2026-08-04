@@ -35,43 +35,6 @@ type Signature<'A, 'B, 'C, 'TResult> =
 type RemotingError = { error: string }
 
 module RemotingHelpers =
-    /// Rebuild the value a handler expects from a JSON-decoded argument.
-    ///
-    /// Records are reconstructed field-by-field from the reflection TypeInfo and recursed into,
-    /// so nested records and lists of records arrive as real records rather than raw
-    /// dicts/objects. Anything else (scalars, unions, options) is passed through untouched —
-    /// see the limitations note in CLAUDE.md.
-    let rec convertJsonValue (targetType: Type) (value: obj) : obj =
-        let genericDef (t: Type) =
-            try
-                Some(t.GetGenericTypeDefinition())
-            with _ ->
-                None
-
-        if isNull value then
-            value
-        elif
-            FSharpType.IsRecord targetType
-            && isJsonObject value
-        then
-            let fields = FSharpType.GetRecordFields targetType
-
-            let values =
-                fields
-                |> Array.map (fun f -> convertJsonValue f.PropertyType (getJsonMember value f.Name))
-
-            FSharpValue.MakeRecord(targetType, values)
-        else
-            match genericDef targetType with
-            | Some def when def = typedefof<_ list> ->
-                let elementType = targetType.GetGenericArguments()[0]
-
-                value :?> obj seq
-                |> Seq.map (convertJsonValue elementType)
-                |> List.ofSeq
-                |> box
-            | _ -> value
-
     let dashifyRoute (path: string) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
@@ -83,9 +46,21 @@ module RemotingHelpers =
                     return! skipPipeline ()
             }
 
+    /// <summary>
     /// Decode the request body into the handler's argument list, or describe why it could not be.
     /// The failure is returned rather than raised so the caller can answer 400 instead of 500.
-    let readArgumentsFromBodyAsync (ctx: HttpContext) (argumentTypes: Type array) =
+    /// </summary>
+    /// <remarks>
+    /// Each argument is decoded by a TypedJson codec built from its reflected
+    /// <c>System.Type</c>. This used to be a hand-rolled walk here — reconstructing records
+    /// field-by-field via <c>MakeRecord</c> and recursing through <c>'T list</c>, looking each
+    /// field up by its pristine F# name. That was a second implementation of the type walk the
+    /// serializer already performs, and it agreed with the wire only by convention: it passed
+    /// unions, options and maps through unconverted, and needed a per-backend key mapping
+    /// (BEAM's <c>toWireKey</c>) to find fields at all. One codec per argument replaces all of it,
+    /// and the key derivation is now shared with encode by construction.
+    /// </remarks>
+    let readArgumentsFromBodyAsync (ctx: HttpContext) (argCodecs: Fable.TypedJson.Json.TypedJson<obj> array) =
         task {
             let! json = ctx.ReadBodyFromRequestAsync()
 
@@ -93,21 +68,28 @@ module RemotingHelpers =
                 try
                     Ok(deserialize json :?> obj seq |> Seq.toArray)
                 with _ ->
-                    Error $"Expected a JSON array of %d{argumentTypes.Length} argument(s)"
+                    Error $"Expected a JSON array of %d{argCodecs.Length} argument(s)"
 
             match decoded with
             | Error message -> return Error message
-            | Ok args when args.Length <> argumentTypes.Length ->
-                return Error $"Expected %d{argumentTypes.Length} argument(s) but got %d{args.Length}"
+            | Ok args when args.Length <> argCodecs.Length ->
+                return Error $"Expected %d{argCodecs.Length} argument(s) but got %d{args.Length}"
             | Ok args ->
-                try
-                    return
-                        args
-                        |> Array.mapi (fun i arg -> convertJsonValue argumentTypes[i] arg)
-                        |> Array.toList
-                        |> Ok
-                with _ ->
-                    return Error "Arguments did not match the expected types"
+                // Fold rather than map so the first bad argument short-circuits with its own
+                // field-level errors, which are far more actionable than "did not match".
+                let folded =
+                    Array.zip argCodecs args
+                    |> Array.fold
+                        (fun acc (codec, arg) ->
+                            match acc with
+                            | Error _ -> acc
+                            | Ok soFar ->
+                                match codec.decode arg with
+                                | Ok value -> Ok(value :: soFar)
+                                | Error errs -> Error(Fable.TypedJson.Schema.formatErrors errs))
+                        (Ok [])
+
+                return folded |> Result.map List.rev
         }
 
     let getFunctionTypes (funcType: Type) (param: Reflection.PropertyInfo) =
@@ -159,15 +141,26 @@ module RemotingHelpers =
                       let method = Signature.Create<_, _, _, _>(value, argumentTypes.Length)
                       let methodName = dashify "_" (field.Name.TrimEnd('_'))
 
+                      let returnType = functionTypes[functionTypes.Length - 1]
+
                       dashifyRoute $"/{methodName}"
                       >=> fun next ctx ->
                           task {
+                              // Codecs are built per request, not hoisted out of this lambda.
+                              // A codec closes over arrays, which Fable compiles to ref-backed
+                              // structures on BEAM, so one built in the builder process reads
+                              // back as `undefined` inside Cowboy's per-request process. The
+                              // shared test suite would not catch it — it never crosses a
+                              // process boundary — so this is load-bearing and not an oversight.
+                              let responseCodec = codecFor returnType
+                              let argCodecs = argumentTypes |> Array.map codecFor
+
                               let! argsResult =
                                   task {
                                       match argumentTypes with
                                       | [||] -> return Ok [ () :> obj ]
                                       | [| t |] when t = typeof<unit> -> return Ok [ () :> obj ]
-                                      | _ -> return! readArgumentsFromBodyAsync ctx argumentTypes
+                                      | _ -> return! readArgumentsFromBodyAsync ctx argCodecs
                                   }
 
                               match argsResult with
@@ -180,7 +173,7 @@ module RemotingHelpers =
                                   match outcome with
                                   | Choice1Of2 output ->
                                       ctx.SetContentType "application/json; charset=utf-8"
-                                      return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(serialize output))
+                                      return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(responseCodec.encode output))
                                   | Choice2Of2 ex ->
                                       match errorHandler with
                                       | Some handler -> return! handler ex next ctx

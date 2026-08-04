@@ -1,18 +1,74 @@
+(**
+# Json — the JavaScript binding to Fable.TypedJson
+
+Every backend used to carry a hand-written serializer: Python walked `__slots__`
+and stripped Fable's trailing underscores, JS called `JSON.stringify` raw, BEAM
+called `jsx:encode`. They disagreed about field names — the same record reached
+the wire as `Description` on JS and `description` on Python and BEAM — and none
+of them could describe itself, so an OpenAPI document had nothing truthful to
+generate from.
+
+TypedJson produces a type's decoder, encoder and JSON Schema from one walk, with
+an invariant that the three cannot drift. The spec therefore cannot describe a
+field the serializer does not emit.
+
+## Build codecs at composition time, never per request
+
+A codec costs ~193µs (flat) to ~1ms (nested) to construct and TypedJson has no
+memo cache, so constructing one per request would be a serious regression on a
+path that used to be a single `json.dumps`. Giraffe already pre-evaluates
+handlers at startup — `Core.text` computes its bytes outside the per-request
+lambda — and the JSON handlers do the same with their codecs.
+
+invariant: a codec is built where a handler is composed, not where it runs
+*)
+
 module Fable.Giraffe.Json
 
-open Fable.Core
+open Fable.TypedJson.Schema
+open Fable.TypedJson.Json
+open Fable.TypedJson.JS.Json
 
-// JSON serialization for the JS/Node backend.
-//
-// Fable compiles F# records to plain JS objects whose own-enumerable keys are
-// the record field names, so `JSON.stringify`/`JSON.parse` round-trip those
-// correctly without a custom replacer. This is intentionally simpler than the
-// Python backend's `giraffeDefault` (which reflects over `__slots__` and strips
-// keyword-collision underscores). Union/DU serialization is not yet at parity
-// across backends — see the JS-target tech-debt notes.
+/// The codec for `'T`. `inline` so `typeof<'T>` is resolved at the call site —
+/// Fable erases generics, so a non-inline version would capture nothing.
+let inline codec<'T> () : TypedJson<'T> = auto<'T> ()
 
-/// Serialize a value to a JSON string using the JS runtime.
-let serialize (value: obj) : string = JS.JSON.stringify (value)
+/// The codec for a type known only at run time. Remoting recovers its methods'
+/// argument and return types by reflection, so it has a `System.Type` and no
+/// `'T` to speak of; `buildCodec` takes the type directly.
+let codecFor (t: System.Type) : TypedJson<obj> =
+    Fable.TypedJson.Json.buildCodec<obj> js emptyRegistry t
 
-/// Deserialize a JSON string into a JS object (record-shaped for `unbox<'T>`).
-let deserialize (s: string) : obj = JS.JSON.parse (s)
+/// Serialize a value of statically known type. Prefer hoisting `codec<'T> ()`
+/// out of a hot path over calling this repeatedly.
+let inline serialize<'T> (value: 'T) : string = (codec<'T> ()).encode value
+
+/// Serialize a value whose type is only known reflectively.
+let serializeAs (t: System.Type) (value: obj) : string = (codecFor t).encode value
+
+/// Parse into the backend's native JSON representation — a Python `dict`, a JS
+/// object, an Erlang map. This is the raw form; `tryDeserialize` decodes into
+/// an F# type.
+let deserialize (s: string) : obj = parseRaw s
+
+/// Decode into `'T`, accumulating a per-field error list rather than throwing.
+let inline tryDeserialize<'T> (s: string) : Result<'T, FieldError list> = (codec<'T> ()).decode (parseRaw s)
+
+// ---------------------------------------------------------------------------
+// Schema — the other face of the same walk
+// ---------------------------------------------------------------------------
+
+/// Render a `JsonSchemaValue` tree to JSON. Used to emit the OpenAPI document,
+/// which is built as a schema-value tree rather than as F# records: the document
+/// has keys like `$ref` and `application/json` that no record field could spell,
+/// and building it as data avoids running it through the case-rule machinery.
+let renderJson (value: JsonSchemaValue) : string =
+    Fable.TypedJson.JsonSchemaGen.schemaValueToJson js value
+
+/// The `$ref`-mode JSON Schema for a reflected type: its own fragment (a `$ref`
+/// for any record or union) plus every type reached beneath it, keyed by name.
+///
+/// Shares the case rule the serializer uses, so a property named here is one the
+/// wire actually carries.
+let schemaWithDefsFor (refPrefix: string) (t: System.Type) : JsonSchemaValue * Map<string, JsonSchemaValue> =
+    Fable.TypedJson.JsonSchemaGen.schemaValueWithDefsFor js emptyRegistry Map.empty CaseRules.LowerFirst refPrefix t

@@ -9,10 +9,15 @@ The shared suite (`test/shared/`) now runs on all three backends and surfaced th
 a documented `SKIP` in the relevant per-target runner (`test/<target>/Main.fs`) so it stays
 visible until fixed.
 
-- [ ] **JSON serialization parity** — JS (`JSON.stringify`) and BEAM (jsx) emit compact JSON;
-      Python's `json.dumps` adds `", "` / `": "` spacing. The `GET /json` case is skipped on
-      JS and BEAM. Also blocks a shared `Remoting` (below). Define one JSON contract + add
-      union/option round-trip tests across targets. Touches `src/*/Json.fs`.
+- [x] **JSON serialization parity** — LARGELY FIXED by adopting Fable.TypedJson as the
+      serializer. All three backends now derive wire keys from one rule (camelCase), so the
+      same record no longer reaches the wire as `Description` on JS and `description` on
+      Python/BEAM. `GET /json` runs on all three targets again.
+      **Byte-level parity is NOT achieved and is not achievable**: Python's `json.dumps` still
+      adds `", "` / `": "` spacing, and Erlang maps have no insertion order, so BEAM emits keys
+      in term order (`age, bar, foo`). The `GET /json` expectation is therefore built via
+      `serialize` rather than a literal. Compact separators on Python would be a reasonable
+      upstream change in `Fable.TypedJson.Python`; key order on BEAM cannot be fixed.
 - [ ] **`routef` typed captures on JS/BEAM** — `%O` (Guid), `%i`, `%u` diverge (`%s` works);
       the affected `routef` cases are skipped on JS and BEAM. Likely `FormatExpressions`
       parsing/conversion differences on those targets. `src/FormatExpressions.fs`.
@@ -60,11 +65,69 @@ visible until fixed.
       stub for `cowboy_req:reply`), or an integration test against a live listener. Until then
       the cross-process path is verified by running `just app-beam`.
 
+## OpenAPI / TypedJson
+
+- [ ] **TypedJson codecs are not process-portable on BEAM** — a codec closes over arrays, which
+      Fable lowers to ref-backed structures, so one built outside Cowboy's request process reads
+      back `undefined` and dies in `decodeRecordWith`. Worked around by building codecs inside the
+      request lambda (`bindJson`, `validateJson`, `Remoting`), which costs ~193µs-1ms per request.
+      Upstream fixes: make `Plan`'s `RecordPlan.Fields` / `CasePlan[]` process-portable (lists
+      rather than arrays), or add the memo cache `PROMPT-serializer-additions.md` already tracks.
+- [x] **Switch to a PackageReference** — DONE, on Fable.TypedJson **5.0.0**. `just pack` produces
+      restorable packages again, and `FSharp.Core` is pinned to 11.0.100 via
+      `<PackageReference Update=...>` (the SDK contributes its own implicit `Include`, so an
+      `Include` here is a duplicate) which clears the NU1605 downgrade warning.
+- [x] **Move to Fable.TypedJson 5.0.1** — DONE. Picks up the `$ref` definition-name collision
+      fix, backend-independent date parsing, and `DateTimeOffset`. Note only the **core**
+      package moved: PR #51 touched `src/Fable.TypedJson/` alone, so the three backend shims
+      are still 5.0.0 and the fsprojs reference the two at different versions deliberately.
+- [ ] **Definition names collide only within one `schemaWithDefsFor` call** — TypedJson
+      shortens per call, so it cannot see across the several calls `OpenApi.buildDocument`
+      makes; two same-named types from different modules each shorten to that name and would
+      merge into one entry. `mergeDefinitions` in `src/OpenApi.fs` handles it by renaming the
+      incoming side (`Item`, `Item2`), which is correct but produces a numeric suffix rather
+      than a meaningful one. The better shape is an upstream entry point returning
+      **FullName-keyed** definitions unshortened, letting the consumer shorten once across the
+      whole document — the shortening decision belongs to whoever assembles it. Until then the
+      suffix is stable, because operation order is.
+- [ ] **Simplify the date workarounds once upstream Fable ships** — TypedJson hand-rolls zone
+      handling only because two Fable bugs make the obvious APIs unusable. Both are written up
+      in `../Fable`; when they land, TypedJson's `splitZoneOffset` collapses to a plain
+      `TryParse` and `dateTimeToString` goes back to `"O"`, and Fable.Giraffe just takes the
+      resulting release.
+      - `BEAM-DATETIME-ZONE-OFFSET-PROMPT.md` — the ISO regex in `fable_date.erl:739-741`
+        accepts only an optional `Z`, so `+02:00` is rejected outright. Also covers `Z` yielding
+        a different `Kind` on BEAM than on .NET/Python, and `DateTimeOffset` equality not being
+        instant-based there.
+      - `PYTHON-DATETIME-ROUNDTRIP-FORMAT-PROMPT.md` — `date.py:526-527` calls `astimezone()` on
+        a naive datetime, so `ToString("O")` on an `Unspecified` value appends the *host's* UTC
+        offset. Also the inconsistent fractional-second width (3 vs 6 vs .NET's 7).
+- [ ] **Fable CLI silently miscompiles when a source file is added** —
+      `../Fable/CLI-STALE-CACHE-ADDED-FILE-PROMPT.md`. Both the project-options cache and the
+      output up-to-date check miss a new `<Compile Include>`, and Fable reports success while
+      emitting a reference to a module it never generated: `raise int32.ONE` on Python, an
+      F# "not defined" error on BEAM. Cost about an hour across this work, three separate times.
+      Until it is fixed, `rm -rf` the target's output dir (and `test/obj`) after adding a file.
+- [ ] **`%s:name` path parameter names** — `routef` templates carry no names, so OpenAPI path
+      parameters are positional (`p0`) unless `Endpoints.pathParams` supplies them. Upstream
+      Giraffe.OpenApi supports `%s:firstName`; adding it here means touching the matcher, which
+      already has known `routef` divergences on JS/BEAM.
+- [ ] **Remoting is not in the OpenAPI document** — `src/Remoting.fs` already recovers argument and
+      return types via `getFunctionTypes`, so emitting `Endpoint`s (or operations) for a remoting
+      API is close to free now that the assembler exists.
+- [ ] **Compact JSON on Python** — `Fable.TypedJson.Python` uses `json.dumps` defaults, which add
+      `", "` / `": "`. Passing `separators=(",", ":")` would shrink payloads and bring Python in
+      line with JS and BEAM. (Key *order* on BEAM still cannot be made to match — Erlang maps have
+      no insertion order.)
+
 ## Feature parity (Python-only today)
 
-- [ ] **`Remoting` → shared** — `src/python/Remoting.fs` is reflection over F# records +
-      `HttpHandler` composition + JSON; mostly portable. Blocked on JSON parity above. Once
-      unified, move to `src/Remoting.fs` and link from all three fsprojs (like `Core.fs`).
+- [x] **`Remoting` → shared** — DONE earlier; and its hand-rolled argument reconstruction
+      (`convertJsonValue`, `MakeRecord` per field, `'T list` recursion) is now gone too,
+      replaced by one TypedJson codec per argument built from the reflected `System.Type`.
+      That removed the second implementation of the type walk, the per-backend key mapping
+      (BEAM's `toWireKey`), and the limitation that unions, options and maps passed through
+      unconverted.
 - [ ] **`StaticFiles` per target** — `src/python/StaticFiles.fs` wraps Starlette's static ASGI
       app, so it's inherently Python. Needs per-backend implementations: BEAM → `cowboy_static`,
       JS → Node/Connect static handler (`express.static` / a small `http` handler).

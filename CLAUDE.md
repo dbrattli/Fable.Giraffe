@@ -72,29 +72,84 @@ type HttpHandler = HttpFunc -> HttpFunc
 - **Negotiation.fs** - Content negotiation based on Accept headers
 - **Middleware.fs** - `GiraffeMiddleware` that bridges handlers into the ASGI pipeline
 - **WebHost.fs** - `WebHostBuilder` for configuring the application, logging, and services
-- **Json.fs** - Custom JSON serialization wrapping Fable.Python.Json with underscore-stripping for Fable 5 compatibility
+- **Json.fs** (per target) - Thin binding to Fable.TypedJson; see "JSON" below
 - **Remoting.fs** - RPC-style remoting via reflection over F# record types (shared; Python + JS)
 - **StaticFiles.fs** - Static file serving via Starlette
+
+### JSON
+
+All three backends serialize through **Fable.TypedJson** (`../Fable.TypedJson`, currently a
+`ProjectReference` pending an rc.2 release). Each `src/<target>/Json.fs` is a thin binding to
+that backend's TypedJson shim exposing `codec<'T>`, `codecFor : System.Type -> TypedJson<obj>`,
+`serialize`, `serializeAs`, `deserialize` (parse to the backend-native value) and
+`tryDeserialize`.
+
+Two properties follow, and both are the reason for the dependency:
+
+- **Schema and wire format cannot disagree.** TypedJson produces a type's decoder, encoder and
+  JSON Schema from one walk, with that as a stated invariant. An OpenAPI document generated
+  from it cannot describe a field the serializer does not emit — a guarantee the ASP.NET stack
+  does not have, since Swashbuckle and `System.Text.Json` derive their views separately.
+- **Field names agree across targets.** The wire is **camelCase** everywhere
+  (`CaseRules.LowerFirst`, TypedJson's default, which also means the codec reuses one
+  pre-resolved plan instead of rebuilding per call). The old hand-written serializers disagreed:
+  the same record reached the wire as `Description` on JS and `description` on Python/BEAM.
+
+**Bytes still differ across backends, and cannot be made identical.** Python's `json.dumps`
+adds `", "` / `": "` spacing, and Erlang maps have no insertion order so BEAM emits keys in term
+order. Tests compare against `serialize` output rather than literals for this reason.
+
+**Build codecs at composition time, never per request.** A codec costs ~193µs (flat) to ~1ms
+(nested) to construct and TypedJson has no memo cache. `Core.json` serializes its value once
+where the handler is composed (as `text` already computed its bytes), `bindJson` /
+`validateJson` build their codec there, and `Remoting.createRoutes` builds one codec per
+argument and one per return type per method. Introducing a per-request `auto<'T> ()` would be a
+serious regression.
+
+**A TypedJson codec cannot cross Cowboy's per-request process boundary.** A codec closes over
+arrays, which Fable compiles to ref-backed structures on BEAM, so one built in the builder process
+reads back as `undefined` in the request process and dies inside `decodeRecordWith` with
+`erlang:length(undefined)` — a 500 with no obvious cause. So codecs used *at request time*
+(`bindJson`, `validateJson`, and both of Remoting's) are built **inside** the handler lambda, not
+hoisted, and that is load-bearing rather than an oversight. `Core.json` is the exception and may
+hoist, because it serializes up front and only an immutable string crosses.
+
+This is the same shared-nothing rule as `ServiceCollection` (see the BEAM section below), and the
+shared test suite cannot catch it — the tests never cross a process boundary. Verify with
+`just app-beam`. Until TypedJson grows process-portable plans or a codec cache, request-time
+decoding pays the ~193µs-1ms build per request.
+
+**Lowercase-first record fields are unusable on the wire.** Fable's BEAM `sanitizeFieldName`
+appends a trailing `_` to them, and no case rule can undo it — a `loc` field reaches the wire as
+`loc_` on BEAM and `loc` everywhere else. Name record fields PascalCase; they mangle to themselves
+and the camelCase rule then produces clean keys on every backend. `ValidationError` /
+`ValidationProblem` in `src/Core.fs` are named this way for exactly this reason.
+
+`Core.validateJson<'T>` is the FastAPI-shaped counterpart to `bindJson`: on a body that does not
+fit the type it answers **422** with `{"detail": [{"loc": ..., "msg": ...}]}` from TypedJson's
+`Result<'T, FieldError list>`, instead of throwing. Additive — `bindJson` still throws.
 
 ### Remoting
 
 `src/Remoting.fs` is shared across **all three** targets (Python, JS, BEAM). It reflects over a record
-of `... -> Async<'T>` fields and generates one sub-route per field under `/{ApiName}`. Only three
-small primitives are target-specific, and they sit behind `PlatformHelpers`:
+of `... -> Async<'T>` fields and generates one sub-route per field under `/{ApiName}`. Only one
+small primitive is target-specific, and it sits behind `PlatformHelpers`:
 
 - `startAsTask` — Async->Task bridge. Direct on Python; JS routes through `Async.StartAsPromise`
   because fable-library-js has no `startAsTask` (`Async.StartAsTask` fails to link at runtime); on
   BEAM it is the identity (`unbox`), since `task` is a CPS alias for `Async` there.
-- `isJsonObject` / `getJsonMember` — test a decoded JSON value for object-ness and read a member by
-  name (`dict` on Python, plain object on JS, an Erlang `map` on BEAM). On BEAM the decoded map is
-  keyed by the mangled record-field atom, not the F# name, so `getJsonMember` first maps the
-  reflection name through `toWireKey` (a reproduction of Fable's `sanitizeFieldName`: snake_case,
-  lowercased, trailing `_` for lowercase-first names). See the Fable follow-up gap below.
 
-Argument reconstruction itself (`RemotingHelpers.convertJsonValue`) is shared and recursive: it
-rebuilds records field-by-field via `FSharpValue.MakeRecord` and recurses through nested records and
-`'T list`. **Unions, options and maps are passed through unconverted** — they will reach the handler
-as raw decoded values.
+Argument reconstruction is one **TypedJson codec per argument**, built at composition time from the
+argument's reflected `System.Type` via `Json.codecFor`; the response likewise uses a codec built
+from the method's return type (the last element of the uncurried signature). This replaced a
+hand-rolled recursive walk that rebuilt records field-by-field via `FSharpValue.MakeRecord` — a
+second implementation of the type walk the serializer already performs, which passed unions,
+options and maps through unconverted and needed a per-backend key mapping (BEAM's `toWireKey`,
+`isJsonObject` / `getJsonMember`) to find fields at all. All of that is deleted; the key derivation
+is now shared with encode by construction.
+
+A malformed argument answers **400** carrying TypedJson's field-level errors, rather than a generic
+"did not match".
 
 Failure handling: a body that is not a JSON array, or an argument count that does not match the
 method, answers **400**; an exception raised by an API method answers **500** with
@@ -102,35 +157,71 @@ method, answers **400**; an exception raised by an API method answers **500** wi
 replaces that default with an `exn -> HttpHandler`. The handler-exception path uses `Async.Catch`
 rather than `try/with` around a `let!`, which is the construct Fable compiles consistently.
 
-Note the **JSON wire format is not identical across backends**: Fable lowercases record field names
-on Python (`{"description": ...}`) and snake_case-lowercases them on BEAM (`{"description": ...}`,
-`{"first_name": ...}`) but preserves them on JS (`{"Description": ...}`), so a JS client and a
-Python/BEAM server do not currently interoperate. Tests build expectations via `serialize` rather
-than literals for this reason.
+Field naming now agrees across backends — see the JSON section above. Tests still build
+expectations via `serialize` rather than literals, because *bytes* differ (Python spacing, BEAM key
+order) even though names do not.
 
 **BEAM was unblocked by Fable 5.13.0** (`fix(beam)` #4849 made reflection value access agree with
 record *and union* codegen — `PropertyInfo.GetValue` / `FSharpValue.MakeRecord` / `MakeUnion` no
 longer `{badkey,...}`). Remoting now runs on all three targets. One BEAM-specific note remains:
 
-- Reflection reports the pristine F# field name, not the record-map key, so `getJsonMember`
-  reproduces `sanitizeFieldName` via `toWireKey` (see above). The Fable team **declined** to change
-  the BEAM reflection surface or wire format (neither is needed for reflection correctness), so
-  `toWireKey` is the **sanctioned** integration point — not a temporary shim to delete. `sanitizeFieldName`
-  is stable; if it ever changes, the wire key is treated as contract. Background in
+- Reflection reports the pristine F# field name, not the record-map key. This used to require
+  reproducing Fable's `sanitizeFieldName` here as `toWireKey`; TypedJson now absorbs it via
+  `Casing.toCanonicalPascal`, which normalises whatever `PropertyInfo.Name` reports on a given
+  backend before applying the case rule. `toWireKey` is deleted. Background in
   `../Fable/BEAM-RECORD-FIELD-NAME-MANGLING-PROMPT.md`.
 
 The BEAM `testSequenced` workaround is **gone** (issue #54 closed): Quill 0.5.1 (Unicode output on
 BEAM, Scriptorium #14) and Nib 0.4.1 (char-level diffs on BEAM, #15) fixed the garbled-diff failures,
 so `test/beam/Main.fs` runs the three suites with plain parallel `runTests` like the other targets.
 
-**Python tripwire on the next `fable-library-py` bump.** The Fable team is fixing Python reflection to
-report the *pristine* F# field name (like BEAM) while keeping the snake_case runtime slot
-(`PYTHON-RECORD-REFLECTION-FIELD-NAME-PROMPT.md`). When that lands, `convertJsonValue`'s
-`getJsonMember value f.Name` on Python will look up `FirstName` against a wire still keyed
-`first_name` (`giraffeDefault` reads `__slots__`) → reconstruction breaks. On that bump, add a Python
-wire-key mapping mirroring BEAM's `toWireKey` (pristine → snake_case slot), or serialize on the
-pristine name. The Python remoting tests use single-word PascalCase fields, which mangle to
-themselves, so they will *not* catch it — add a multi-word field first.
+**The Python reflection tripwire is closed.** The Fable team is changing Python reflection to
+report the *pristine* F# field name while keeping the snake_case runtime slot
+(`PYTHON-RECORD-REFLECTION-FIELD-NAME-PROMPT.md`). That used to be a live hazard — Remoting looked
+fields up by `PropertyInfo.Name` against a wire keyed by slot name, so the bump would have broken
+reconstruction silently. TypedJson's `Casing.toCanonicalPascal` normalises either spelling, and
+TypedJson's own test suite covers the multi-word case, so the bump is now a non-event here.
+
+### OpenAPI
+
+`src/OpenApi.fs` generates an OpenAPI 3.1 document from an `Endpoint list` and serves it. Opt-in,
+like the endpoint layer it reads:
+
+```fsharp
+let webApp =
+    endpoints
+    |> OpenApi.withDocs (OpenApiInfo.Create("My API", "1.0"))
+    |> Endpoints.toHandler
+```
+
+`withDocs` appends two endpoints — `/openapi.json` and a Scalar UI at `/docs` — and builds the
+document **once, at composition time**, closing over the rendered string. That is FastAPI's
+`app.openapi_schema` memoization done eagerly, and on BEAM it is what makes the spec work at all:
+an immutable string crosses Cowboy's process boundary where a lazily-populated cache could not.
+The two added endpoints are absent from the document they serve, because it is built before they
+are appended — FastAPI's `include_in_schema=False`, for free.
+
+`buildDocument` is a pure `Endpoint list -> JsonSchemaValue`, structured like FastAPI's
+`get_openapi(routes=...)`. Two passes, as there: every referenced type is resolved first so each
+schema lands once in `components/schemas`, then operations `$ref` them.
+
+The document is built as a `JsonSchemaValue` tree rather than F# records — it has keys like `$ref`
+and `application/json` that no record field could spell, and building it as data keeps it out of
+the case-rule machinery. Schemas come from TypedJson's `$ref` mode, off the same walk that builds
+the serializer's codec, so **the document cannot describe a property the wire does not carry**.
+
+Notes:
+
+- A route with no verb (`HttpVerb.ANY` — i.e. one not inside a `GET [...]`-style group) still
+  routes but is **absent from the document**: OpenAPI has no "any method" operation.
+- Path parameter names come from `Endpoints.pathParams`; `routef` templates carry none, so without
+  it they are named positionally (`p0`, `p1`). Adding `%s:name` to `FormatExpressions` is a
+  follow-up.
+- `OpenApi.paramSchema` holds the `char -> (type, format)` table. It mirrors
+  `FormatExpressions.formatStringMap`, which owns the *matching* side of the same characters but
+  carries no type information.
+- `responds<'T>` documents `application/json`. A handler that writes `text/plain` should use
+  `respondsWith<'T> code "text/plain"`, or the document will lie about it.
 
 ### Logging
 

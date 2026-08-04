@@ -12,6 +12,17 @@ type HttpFunc = HttpContext -> HttpFuncResult
 
 type HttpHandler = HttpFunc -> HttpFunc
 
+/// One entry of a 422 body: which field failed, and why.
+///
+/// Field names are PascalCase deliberately. Fable appends a trailing `_` to a lowercase-first
+/// record field on BEAM (`sanitizeFieldName`), and no case rule can undo that — a `loc` field
+/// reaches the wire as `loc_`. PascalCase names mangle to themselves, so the camelCase wire
+/// keys come out clean on every backend.
+type ValidationError = { Loc: string; Msg: string }
+
+/// The body `validateJson` writes on a 422, shaped like FastAPI's.
+type ValidationProblem = { Detail: ValidationError list }
+
 
 [<AutoOpen>]
 module Core =
@@ -205,8 +216,53 @@ module Core =
     let inline bindJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
-                let! model = ctx.BindJsonAsync<'T>()
-                return! f model next ctx
+                // Built per request, NOT hoisted to composition time. A codec is closures over
+                // arrays, which Fable compiles to ref-backed structures on BEAM, so one built in
+                // the builder process reads back as `undefined` in Cowboy's per-request process
+                // and dies in `decodeRecordWith`. Costs ~193µs-1ms per call until TypedJson
+                // grows a cache or process-portable plans. `json` is unaffected: it serializes
+                // up front and only an immutable string crosses.
+                let codec = Json.codec<'T> ()
+                let! body = ctx.ReadBodyFromRequestAsync()
+
+                match codec.decode (Json.deserialize body) with
+                | Ok model -> return! f model next ctx
+                | Error errs -> return failwith (Fable.TypedJson.Schema.formatErrors errs)
+            }
+
+    /// <summary>
+    /// Parses a JSON payload into an instance of type 'T, answering <c>422 Unprocessable
+    /// Entity</c> with a per-field error list when the body does not fit.
+    /// </summary>
+    /// <remarks>
+    /// The FastAPI-shaped counterpart to <see cref="bindJson"/>, which throws. TypedJson
+    /// decodes to <c>Result&lt;'T, FieldError list&gt;</c> with a path per bad field, so the
+    /// client is told which field was wrong rather than just that something was.
+    ///
+    /// Additive rather than a change to <c>bindJson</c>: apps opt in where they want it.
+    /// </remarks>
+    /// <param name="f">A function which accepts an object of type 'T and returns a <see cref="HttpHandler"/> function.</param>
+    /// <typeparam name="'T"></typeparam>
+    /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
+    let inline validateJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                // Per request, for the BEAM process-boundary reason given on `bindJson`.
+                let codec = Json.codec<'T> ()
+                let! body = ctx.ReadBodyFromRequestAsync()
+
+                match codec.decode (Json.deserialize body) with
+                | Ok model -> return! f model next ctx
+                | Error errs ->
+                    let problem =
+                        { Detail =
+                            errs
+                            |> List.map (fun e -> { Loc = e.path; Msg = e.message }) }
+
+                    ctx.SetStatusCode 422
+                    ctx.SetContentType "application/json; charset=utf-8"
+
+                    return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes(serialize problem))
             }
 
     /// <summary>
@@ -266,9 +322,17 @@ module Core =
     /// <param name="ctx"></param>
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
+    /// <remarks>
+    /// The value is serialized once, where the handler is composed, exactly as
+    /// <see cref="text"/> computes its bytes up front. That matters more than it used to:
+    /// a TypedJson codec costs ~193µs to ~1ms to build and there is no memo cache, so
+    /// building one per request would be a serious regression on this path. Handlers that
+    /// need per-request data should write the response from a handler lambda rather than
+    /// pre-applying <c>json</c>.
+    /// </remarks>
     let inline json<'T> (dataObj: 'T) : HttpHandler =
+        let bytes = Encoding.UTF8.GetBytes(serialize dataObj)
+
         fun (_: HttpFunc) (ctx: HttpContext) ->
-            let json = serialize dataObj
-            let bytes = Encoding.UTF8.GetBytes json
             ctx.SetContentType "application/json; charset=utf-8"
             ctx.WriteBytesAsync bytes

@@ -89,6 +89,32 @@ let private convertToRegexPatternAndFormatChars (mode: MatchMode) (formatString:
     |> (fun (pattern, formatChars) -> formatRegex mode pattern, formatChars)
 
 /// <summary>
+/// Extracts the ordered format characters from a printf-style route template, e.g.
+/// <c>"/user/%i/posts/%s"</c> yields <c>[ 'i'; 's' ]</c>. An escaped <c>"%%"</c> is a literal
+/// percent sign and yields no format character.
+///
+/// This is the descriptive counterpart to <see cref="tryMatchInput"/>: the same template drives
+/// request matching there and parameter description here, so the two cannot disagree about how
+/// many parameters a route takes or in what order.
+/// </summary>
+/// <param name="formatString">The raw <c>PrintfFormat.Value</c> of a route template.</param>
+/// <returns>The format characters, in the order they appear in the template.</returns>
+/// <exception cref="System.Exception">Thrown when the template uses an unsupported format character.</exception>
+let getFormatChars (formatString: string) : char list =
+    let rec collect (chars: char list) =
+        match chars with
+        | '%' :: '%' :: tail -> collect tail
+        | '%' :: c :: tail ->
+            if not (formatStringMap.ContainsKey c) then
+                failwithf $"'%%%c{c}' is not a supported route format character (in '%s{formatString}')"
+
+            c :: collect tail
+        | _ :: tail -> collect tail
+        | [] -> []
+
+    formatString |> List.ofSeq |> collect
+
+/// <summary>
 /// Tries to parse an input string based on a given format string and return a tuple of all parsed arguments.
 /// </summary>
 /// <param name="format">The format string which shall be used for parsing.</param>

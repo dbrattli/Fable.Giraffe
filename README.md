@@ -19,6 +19,12 @@ once in F# and run it on three runtimes:
 Fable.Giraffe's major version tracks the Fable compiler it targets: the 5.x
 line is built with and requires Fable 5.
 
+Beyond the Giraffe handler API, it ships an opt-in
+[endpoint layer](#openapi) that generates an **OpenAPI 3.1** document and serves
+interactive docs, [typed JSON](#json-and-validation) with FastAPI-style
+validation errors, and [remoting](#remoting) — all shared across the three
+targets.
+
 ## Install
 
 There is one NuGet package per target — add the one for the runtime you are
@@ -65,6 +71,145 @@ let start () =
         .Configure(fun app -> app.UseGiraffe(webApp))
         .Build(8080)
 ```
+
+## JSON and validation
+
+JSON goes through [Fable.TypedJson](https://github.com/dbrattli/Fable.TypedJson),
+which derives a type's decoder, encoder **and JSON Schema from a single walk**.
+That single walk is the point: the schema a generated OpenAPI document publishes
+cannot disagree with what the serializer actually writes. In the ASP.NET world
+these come from two separate mechanisms — Swashbuckle and `System.Text.Json` —
+and can drift.
+
+Records serialize to **camelCase** on every target, and unions to a tagged
+`{"type": "caseName", ...}`:
+
+```fsharp
+type Order = { Customer: string; LineTotal: decimal }
+
+json { Customer = "Ada"; LineTotal = 12.34m }
+// {"customer":"Ada","lineTotal":"12.34"}
+```
+
+Field *names* are identical across targets; exact bytes are not, and cannot be.
+Python's `json.dumps` adds `", "` spacing, and Erlang maps have no insertion
+order, so BEAM emits keys in term order. Compare parsed JSON, not strings.
+
+`DateTime` crosses the wire as ISO-8601 UTC, `Guid` as a canonical uuid, and
+`decimal` as a **string** — a decimal exists precisely because binary floating
+point cannot represent the value, so emitting it as a JSON number would throw
+away the guarantee the type was chosen for. Pydantic does the same.
+
+### Validation
+
+`validateJson<'T>` answers **422** with a per-field error list instead of
+throwing, the way FastAPI does:
+
+```fsharp
+POST [ route "/greet" (validateJson<Model> (fun m -> text $"Hello, {m.Name}")) ]
+```
+
+```console
+$ curl -X POST localhost:8080/greet -d '{"name":"Ada","age":"nope"}'
+{"detail":[{"loc":"age","msg":"cannot parse 'nope' as int"}]}
+```
+
+Nested failures report a path (`address.city`, `members[1].city`). `bindJson`
+still throws — `validateJson` is additive, so you opt in per route.
+
+## OpenAPI
+
+Upstream Giraffe generates OpenAPI through
+[Giraffe.OpenApi](https://github.com/giraffe-fsharp/Giraffe.OpenApi), which
+requires `Giraffe.EndpointRouting` and ASP.NET's document pipeline. Neither is
+available under Fable, and the reason is structural: `HttpHandler` is a bare
+closure, so `route "/ping"` erases `"/ping"` and a composed application carries
+no description of itself.
+
+Fable.Giraffe solves it the way Giraffe and FastAPI both do — a declaration-time
+route table. `Fable.Giraffe.Endpoints` is an **opt-in** layer that lowers onto
+the ordinary `route` / `routef` / `subRoute` / `choose` combinators, so there is
+still exactly one path matcher and classic `choose [ ... ]` apps are unaffected:
+
+```fsharp
+open Fable.Giraffe
+open Fable.Giraffe.Endpoints
+
+type User = { Name: string; Age: int }
+
+let endpoints = [
+    GET [
+        route "/ping" (text "pong")
+        |> summary "Health check"
+        |> respondsWith<string> 200 "text/plain"
+
+        routef "/user/%i" getUser
+        |> pathParams [ "id" ]
+        |> responds<User> 200
+        |> respondsEmpty 404
+    ]
+
+    POST [
+        route "/user" createUser
+        |> accepts<User>
+        |> responds<User> 201
+    ]
+
+    // Metadata set on a group is inherited by its leaves.
+    subRoute "/admin" [ GET [ route "/stats" getStats |> responds<Stats> 200 ] ]
+    |> tags [ "admin" ]
+]
+
+// The annotation matters: without something consuming `webApp`, F#'s value
+// restriction rejects the binding.
+let webApp: HttpHandler =
+    endpoints
+    |> OpenApi.withDocs (OpenApiInfo.Create("My API", "1.0"))
+    |> Endpoints.toHandler
+```
+
+That serves the document at `/openapi.json` and an interactive
+[Scalar](https://github.com/scalar/scalar) UI at `/docs`. Path templates and
+their parameter types are derived from the `routef` format string; response and
+request schemas come from `typeof<'T>` captured at the call site. Types are
+emitted once into `components/schemas` and referenced by `$ref`, so a shared type
+is defined once and a recursive one round-trips.
+
+The document is built **once, at startup**, and the handlers close over the
+rendered string — which is also what makes it work on BEAM, where Cowboy spawns
+a fresh process per request and only immutable values survive the hop.
+
+Three things worth knowing:
+
+- A route that answers **any** verb (one not inside a `GET [...]`-style group)
+  still routes, but is absent from the document — OpenAPI has no "any method"
+  operation.
+- `routef` templates carry no parameter names, so without `pathParams` they are
+  named positionally (`p0`, `p1`).
+- `responds<'T>` documents `application/json`. A handler writing `text/plain`
+  should use `respondsWith<'T> 200 "text/plain"`, or the document will misdescribe
+  it.
+
+## Remoting
+
+`Remoting` reflects over a record of `... -> Async<'T>` fields and generates one
+route per field, decoding arguments and encoding results with the same typed JSON
+machinery:
+
+```fsharp
+type IServer =
+    { getNumbers: unit -> Async<int list>
+      updateModel: Model -> Async<Model> }
+
+let webApp =
+    Remoting.createApi ()
+    |> Remoting.fromValue server
+    |> Remoting.buildHttpHandler
+```
+
+A malformed body answers 400 with field-level errors; an exception raised by an
+API method answers 500 without leaking it (`Remoting.withErrorHandler` replaces
+that default).
 
 ## Prerequisites
 

@@ -24,12 +24,3 @@ module PlatformHelpers =
     /// Start an `Async` and expose it as a `Task`. Direct on this backend; the JS backend
     /// has to route through `StartAsPromise` because fable-library-js has no `startAsTask`.
     let startAsTask (computation: Async<'T>) : Task<'T> = Async.StartAsTask computation
-
-    /// True when a JSON-decoded value is an object (a `dict` on this backend) rather
-    /// than a scalar or a list. Drives the shared record-reconstruction recursion.
-    [<Emit("isinstance($0, dict)")>]
-    let isJsonObject (value: obj) : bool = nativeOnly
-
-    /// Read a member from a JSON-decoded object by name, or `null` when absent.
-    [<Emit("$0.get($1)")>]
-    let getJsonMember (value: obj) (name: string) : obj = nativeOnly

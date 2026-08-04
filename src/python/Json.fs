@@ -1,87 +1,74 @@
+(**
+# Json — the Python binding to Fable.TypedJson
+
+Every backend used to carry a hand-written serializer: Python walked `__slots__`
+and stripped Fable's trailing underscores, JS called `JSON.stringify` raw, BEAM
+called `jsx:encode`. They disagreed about field names — the same record reached
+the wire as `Description` on JS and `description` on Python and BEAM — and none
+of them could describe itself, so an OpenAPI document had nothing truthful to
+generate from.
+
+TypedJson produces a type's decoder, encoder and JSON Schema from one walk, with
+an invariant that the three cannot drift. The spec therefore cannot describe a
+field the serializer does not emit.
+
+## Build codecs at composition time, never per request
+
+A codec costs ~193µs (flat) to ~1ms (nested) to construct and TypedJson has no
+memo cache, so constructing one per request would be a serious regression on a
+path that used to be a single `json.dumps`. Giraffe already pre-evaluates
+handlers at startup — `Core.text` computes its bytes outside the per-request
+lambda — and the JSON handlers do the same with their codecs.
+
+invariant: a codec is built where a handler is composed, not where it runs
+*)
+
 module Fable.Giraffe.Json
 
-open Fable.Core
-open Fable.Python.Json
+open Fable.TypedJson.Schema
+open Fable.TypedJson.Json
+open Fable.TypedJson.Python.Json
 
-[<Emit("{slot.rstrip('_'): getattr($0, slot) for slot in $0.__slots__}")>]
-let private slotsToDict (o: obj) : obj = nativeOnly
+/// The codec for `'T`. `inline` so `typeof<'T>` is resolved at the call site —
+/// Fable erases generics, so a non-inline version would capture nothing.
+let inline codec<'T> () : TypedJson<'T> = auto<'T> ()
 
-[<Emit("type($0).__name__")>]
-let private typeName (o: obj) : string = nativeOnly
+/// The codec for a type known only at run time. Remoting recovers its methods'
+/// argument and return types by reflection, so it has a `System.Type` and no
+/// `'T` to speak of; `buildCodec` takes the type directly.
+let codecFor (t: System.Type) : TypedJson<obj> =
+    Fable.TypedJson.Json.buildCodec<obj> python emptyRegistry t
 
-[<Emit("hasattr($0, $1)")>]
-let private hasattr (o: obj) (name: string) : bool = nativeOnly
+/// Serialize a value of statically known type. Prefer hoisting `codec<'T> ()`
+/// out of a hot path over calling this repeatedly.
+let inline serialize<'T> (value: 'T) : string = (codec<'T> ()).encode value
 
-[<Emit("getattr($0, $1)")>]
-let private getattr' (o: obj) (name: string) : obj = nativeOnly
+/// Serialize a value whose type is only known reflectively.
+let serializeAs (t: System.Type) (value: obj) : string = (codecFor t).encode value
 
-[<Emit("int($0)")>]
-let private toInt (o: obj) : obj = nativeOnly
+/// Parse into the backend's native JSON representation — a Python `dict`, a JS
+/// object, an Erlang map. This is the raw form; `tryDeserialize` decodes into
+/// an F# type.
+let deserialize (s: string) : obj = parseRaw s
 
-[<Emit("float($0)")>]
-let private toFloat (o: obj) : obj = nativeOnly
+/// Decode into `'T`, accumulating a per-field error list rather than throwing.
+let inline tryDeserialize<'T> (s: string) : Result<'T, FieldError list> = (codec<'T> ()).decode (parseRaw s)
 
-[<Emit("list($0)")>]
-let private toList (o: obj) : obj = nativeOnly
+// ---------------------------------------------------------------------------
+// Schema — the other face of the same walk
+// ---------------------------------------------------------------------------
 
-[<Emit("getattr(type($0), 'cases', lambda: [])()")>]
-let private getCases (o: obj) : string array = nativeOnly
+/// Render a `JsonSchemaValue` tree to JSON. Used to emit the OpenAPI document,
+/// which is built as a schema-value tree rather than as F# records: the document
+/// has keys like `$ref` and `application/json` that no record field could spell,
+/// and building it as data avoids running it through the case-rule machinery.
+let renderJson (value: JsonSchemaValue) : string =
+    Fable.TypedJson.JsonSchemaGen.schemaValueToJson python value
 
-[<Emit("([$1] + list($0.fields)) if $0.fields else $1")>]
-let private unionToList (o: obj) (caseName: string) : obj = nativeOnly
-
-[<Emit("(_ for _ in ()).throw(TypeError(f'Object of type {type($0).__name__} is not JSON serializable'))")>]
-let private raiseTypeError (o: obj) : obj = nativeOnly
-
-/// Custom default handler that strips trailing underscores from record slot names.
-/// This works around Fable 5's convention of adding trailing underscores to Python identifiers.
-let giraffeDefault (o: obj) : obj =
-    let name = typeName o
-
-    match name with
-    | "Int8"
-    | "Int16"
-    | "Int32"
-    | "Int64"
-    | "UInt8"
-    | "UInt16"
-    | "UInt32"
-    | "UInt64" -> toInt o
-    | "Float32"
-    | "Float64" -> toFloat o
-    | "FSharpArray"
-    | "GenericArray"
-    | "Int8Array"
-    | "Int16Array"
-    | "Int32Array"
-    | "Int64Array"
-    | "UInt8Array"
-    | "UInt16Array"
-    | "UInt32Array"
-    | "UInt64Array"
-    | "Float32Array"
-    | "Float64Array"
-    | "FSharpList" -> toList o
-    | _ ->
-        if hasattr o "tag" && hasattr o "fields" then
-            let cases = getCases o
-            let tag: int = getattr' o "tag" :?> int
-
-            let caseName =
-                if tag < cases.Length then
-                    cases.[tag]
-                else
-                    "Case" + string tag
-
-            unionToList o caseName
-        elif hasattr o "__slots__" then
-            slotsToDict o
-        else
-            raiseTypeError o
-
-/// Serialize an object to a JSON string, stripping trailing underscores from record field names.
-let serialize (value: obj) : string =
-    json.dumps (value, ``default`` = giraffeDefault)
-
-/// Deserialize a JSON string to a Python object (dict, list, etc).
-let inline deserialize (s: string) : obj = Json.loads s
+/// The `$ref`-mode JSON Schema for a reflected type: its own fragment (a `$ref`
+/// for any record or union) plus every type reached beneath it, keyed by name.
+///
+/// Shares the case rule the serializer uses, so a property named here is one the
+/// wire actually carries.
+let schemaWithDefsFor (refPrefix: string) (t: System.Type) : JsonSchemaValue * Map<string, JsonSchemaValue> =
+    Fable.TypedJson.JsonSchemaGen.schemaValueWithDefsFor python emptyRegistry Map.empty CaseRules.LowerFirst refPrefix t

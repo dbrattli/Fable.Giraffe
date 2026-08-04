@@ -7,4 +7,9 @@ open type Scriptorium.Quill.Runner
 // ignored, and no wrapper script is needed.
 [<EntryPoint>]
 let main _ =
-    runTests [ HandlerTests.tests; RoutingTests.tests; RemotingTests.tests ]
+    runTests
+        [ HandlerTests.tests
+          RoutingTests.tests
+          EndpointTests.tests
+          OpenApiTests.tests
+          RemotingTests.tests ]

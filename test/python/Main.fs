@@ -6,4 +6,9 @@ open type Scriptorium.Quill.Runner
 // the hood), so the returned exit code is the process exit code.
 [<EntryPoint>]
 let main _ =
-    runTests [ HandlerTests.tests; RoutingTests.tests; RemotingTests.tests ]
+    runTests
+        [ HandlerTests.tests
+          RoutingTests.tests
+          EndpointTests.tests
+          OpenApiTests.tests
+          RemotingTests.tests ]
