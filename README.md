@@ -17,7 +17,9 @@ once in F# and run it on three runtimes:
 | Erlang/BEAM | OTP | Cowboy |
 
 Fable.Giraffe's major version tracks the Fable compiler it targets: the 5.x
-line is built with and requires Fable 5.
+line is built with and requires Fable 5. The major is therefore *not* a SemVer
+signal — a breaking change can land in a minor release, and will be listed under
+**Breaking changes** in [CHANGELOG.md](CHANGELOG.md). Read it before upgrading.
 
 Beyond the Giraffe handler API, it ships an opt-in
 [endpoint layer](#openapi) that generates an **OpenAPI 3.1** document and serves
