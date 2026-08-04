@@ -243,6 +243,60 @@ module OpenApi =
     // Document
     // ---------------------------------
 
+    /// Rewrites every `$ref` pointing at `fromKey` to point at `toKey`.
+    let rec private rewriteRef (fromKey: string) (toKey: string) (v: JsonSchemaValue) : JsonSchemaValue =
+        match v with
+        | SVDict m ->
+            match Map.tryFind "$ref" m with
+            | Some(SVStr pointer) when pointer = SchemaRef + fromKey -> SVDict(Map.add "$ref" (SVStr(SchemaRef + toKey)) m)
+            | _ ->
+                SVDict(
+                    m
+                    |> Map.map (fun _ child -> rewriteRef fromKey toKey child)
+                )
+        | SVList xs -> SVList(xs |> List.map (rewriteRef fromKey toKey))
+        | _ -> v
+
+    /// <summary>
+    /// Merges one type's definitions into the accumulated set, renaming any incoming key
+    /// that already names a <em>different</em> schema.
+    /// </summary>
+    /// <remarks>
+    /// TypedJson shortens definition names per call, so it cannot see across the several
+    /// calls this assembler makes. Two types with the same simple name in different modules
+    /// are each unambiguous on their own and both shorten to that name — merged naively, one
+    /// ends up described by the other's schema. That is the defect TypedJson 5.0.1 fixed one
+    /// layer down, reappearing here for the same reason.
+    ///
+    /// Renaming the <em>incoming</em> side is what makes this sound: every `$ref` to the
+    /// contested key inside this call's subtree refers to this call's body, and nothing
+    /// already merged can point at it yet. Bodies are compared structurally, so the same type
+    /// reached twice is a re-registration and keeps its name.
+    /// </remarks>
+    let private mergeDefinitions
+        (accumulated: Map<string, JsonSchemaValue>)
+        (root: JsonSchemaValue, incoming: Map<string, JsonSchemaValue>)
+        : JsonSchemaValue * Map<string, JsonSchemaValue> =
+        incoming
+        |> Map.fold
+            (fun (root: JsonSchemaValue, acc: Map<string, JsonSchemaValue>) key body ->
+                match Map.tryFind key acc with
+                | Some existing when existing <> body ->
+                    let rec freshKey n =
+                        let candidate = key + string n
+
+                        match Map.tryFind candidate acc with
+                        | Some taken when taken <> body -> freshKey (n + 1)
+                        | _ -> candidate
+
+                    let renamed = freshKey 2
+
+                    // Rewrite this call's subtree — its root and the body being merged — so
+                    // every pointer to `key` follows the renamed definition.
+                    rewriteRef key renamed root, Map.add renamed (rewriteRef key renamed body) acc
+                | _ -> root, Map.add key body acc)
+            (root, accumulated)
+
     /// <summary>
     /// Builds the OpenAPI document for an endpoint list.
     ///
@@ -261,16 +315,13 @@ module OpenApi =
         let roots, definitions =
             operations
             |> List.collect (fun op -> referencedTypes op.Meta)
+            // By FullName, so a type mentioned by several operations is walked once and
+            // cannot be renamed against itself.
+            |> List.distinctBy (fun t -> t.FullName)
             |> List.fold
                 (fun (roots: Map<string, JsonSchemaValue>, defs: Map<string, JsonSchemaValue>) t ->
-                    let root, typeDefs = schemaWithDefsFor SchemaRef t
-                    let roots = Map.add t.FullName root roots
-
-                    let defs =
-                        typeDefs
-                        |> Map.fold (fun acc k v -> Map.add k v acc) defs
-
-                    roots, defs)
+                    let root, defs = mergeDefinitions defs (schemaWithDefsFor SchemaRef t)
+                    Map.add t.FullName root roots, defs)
                 (Map.empty, Map.empty)
 
         let schemaOf (t: Type) =

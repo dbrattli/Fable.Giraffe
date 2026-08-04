@@ -17,6 +17,16 @@ type Widget = { Name: string; Size: int }
 
 type Crate = { Label: string; Contents: Widget }
 
+// Two distinct types sharing a simple name. Keyed by simple name they collapsed
+// into one `components/schemas` entry and one operation's `$ref` resolved to the
+// other's schema — a silently wrong document. Fixed in Fable.TypedJson 5.0.1;
+// pinned here so a downgrade would be caught at this layer too.
+module Storefront =
+    type Item = { Sku: string }
+
+module Warehouse =
+    type Item = { Bin: int }
+
 let private info = OpenApiInfo.Create("Test API", "1.0")
 
 let private prop (v: JsonSchemaValue) (key: string) : JsonSchemaValue option =
@@ -238,6 +248,62 @@ let private schemaTests =
                                   |> Endpoints.responds<Widget> 200 ] ]
 
                   assertThat (keysOf (at doc [ "components"; "schemas"; "Widget"; "properties" ])) (isEqualTo [ "name"; "size" ])
+          )
+
+          test (
+              "same-named types from different modules get distinct components",
+              fun _ ->
+                  let doc =
+                      OpenApi.buildDocument
+                          info
+                          [ Endpoints.GET
+                                [ Endpoints.route "/storefront" (text "x")
+                                  |> Endpoints.responds<Storefront.Item> 200
+
+                                  Endpoints.route "/warehouse" (text "x")
+                                  |> Endpoints.responds<Warehouse.Item> 200 ] ]
+
+                  let refAt path =
+                      at doc path
+                      |> Option.bind (fun v -> str (prop v "$ref"))
+
+                  let storefront =
+                      refAt
+                          [ "paths"
+                            "/storefront"
+                            "get"
+                            "responses"
+                            "200"
+                            "content"
+                            "application/json"
+                            "schema" ]
+
+                  let warehouse =
+                      refAt
+                          [ "paths"
+                            "/warehouse"
+                            "get"
+                            "responses"
+                            "200"
+                            "content"
+                            "application/json"
+                            "schema" ]
+
+                  // Two entries, two pointers, and the pointers differ.
+                  assertThat (List.length (keysOf (at doc [ "components"; "schemas" ]))) (isEqualTo 2)
+                  assertThat (storefront = warehouse) isFalse
+
+                  // Each resolves to the schema of its own type.
+                  let propsAt (pointer: string option) =
+                      pointer
+                      |> Option.map (fun p -> p.Substring "#/components/schemas/".Length)
+                      |> Option.bind (fun key -> at doc [ "components"; "schemas"; key; "properties" ])
+                      |> Some
+                      |> Option.flatten
+                      |> keysOf
+
+                  assertThat (propsAt storefront) (isEqualTo [ "sku" ])
+                  assertThat (propsAt warehouse) (isEqualTo [ "bin" ])
           )
 
           test (

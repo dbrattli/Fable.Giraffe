@@ -77,20 +77,19 @@ visible until fixed.
       restorable packages again, and `FSharp.Core` is pinned to 11.0.100 via
       `<PackageReference Update=...>` (the SDK contributes its own implicit `Include`, so an
       `Include` here is a duplicate) which clears the NU1605 downgrade warning.
-- [ ] **Move to Fable.TypedJson 5.0.1 when it ships** — 5.0.0 was cut from PR #49 *before* its
-      review fixes landed, so the published package still has three known defects that the
-      local `feat/schema-ref-mode` branch fixes (`54e81f7`):
-      - **`$ref` definitions keyed by simple `Name`.** Two types with the same simple name in
-        different modules collapse into one `components/schemas` entry and one of them is
-        described by the other's schema — a silently wrong OpenAPI document. Only bites when an
-        app actually has same-named types (e.g. `Api.User` / `Domain.User`); Fable.Giraffe's own
-        suite does not, which is why it is green.
-      - **Bare timestamps decode machine-dependently.** `"2026-08-03T14:30:15"` is read as local
-        time, so the same document yields different instants in different timezones.
-      - **BEAM rejects numeric UTC offsets.** `"…T16:30:15+02:00"` fails to parse entirely
-        (upstream: `../Fable/BEAM-DATETIME-ZONE-OFFSET-PROMPT.md`).
-      `DateTimeOffset` support also only exists on that branch.
-      PR: https://github.com/dbrattli/Fable.TypedJson/pull/51
+- [x] **Move to Fable.TypedJson 5.0.1** — DONE. Picks up the `$ref` definition-name collision
+      fix, backend-independent date parsing, and `DateTimeOffset`. Note only the **core**
+      package moved: PR #51 touched `src/Fable.TypedJson/` alone, so the three backend shims
+      are still 5.0.0 and the fsprojs reference the two at different versions deliberately.
+- [ ] **Definition names collide only within one `schemaWithDefsFor` call** — TypedJson
+      shortens per call, so it cannot see across the several calls `OpenApi.buildDocument`
+      makes; two same-named types from different modules each shorten to that name and would
+      merge into one entry. `mergeDefinitions` in `src/OpenApi.fs` handles it by renaming the
+      incoming side (`Item`, `Item2`), which is correct but produces a numeric suffix rather
+      than a meaningful one. The better shape is an upstream entry point returning
+      **FullName-keyed** definitions unshortened, letting the consumer shorten once across the
+      whole document — the shortening decision belongs to whoever assembles it. Until then the
+      suffix is stable, because operation order is.
 - [ ] **Simplify the date workarounds once upstream Fable ships** — TypedJson hand-rolls zone
       handling only because two Fable bugs make the obvious APIs unusable. Both are written up
       in `../Fable`; when they land, TypedJson's `splitZoneOffset` collapses to a plain
