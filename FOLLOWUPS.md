@@ -90,6 +90,25 @@ visible until fixed.
       - **BEAM rejects numeric UTC offsets.** `"…T16:30:15+02:00"` fails to parse entirely
         (upstream: `../Fable/BEAM-DATETIME-ZONE-OFFSET-PROMPT.md`).
       `DateTimeOffset` support also only exists on that branch.
+      PR: https://github.com/dbrattli/Fable.TypedJson/pull/51
+- [ ] **Simplify the date workarounds once upstream Fable ships** — TypedJson hand-rolls zone
+      handling only because two Fable bugs make the obvious APIs unusable. Both are written up
+      in `../Fable`; when they land, TypedJson's `splitZoneOffset` collapses to a plain
+      `TryParse` and `dateTimeToString` goes back to `"O"`, and Fable.Giraffe just takes the
+      resulting release.
+      - `BEAM-DATETIME-ZONE-OFFSET-PROMPT.md` — the ISO regex in `fable_date.erl:739-741`
+        accepts only an optional `Z`, so `+02:00` is rejected outright. Also covers `Z` yielding
+        a different `Kind` on BEAM than on .NET/Python, and `DateTimeOffset` equality not being
+        instant-based there.
+      - `PYTHON-DATETIME-ROUNDTRIP-FORMAT-PROMPT.md` — `date.py:526-527` calls `astimezone()` on
+        a naive datetime, so `ToString("O")` on an `Unspecified` value appends the *host's* UTC
+        offset. Also the inconsistent fractional-second width (3 vs 6 vs .NET's 7).
+- [ ] **Fable CLI silently miscompiles when a source file is added** —
+      `../Fable/CLI-STALE-CACHE-ADDED-FILE-PROMPT.md`. Both the project-options cache and the
+      output up-to-date check miss a new `<Compile Include>`, and Fable reports success while
+      emitting a reference to a module it never generated: `raise int32.ONE` on Python, an
+      F# "not defined" error on BEAM. Cost about an hour across this work, three separate times.
+      Until it is fixed, `rm -rf` the target's output dir (and `test/obj`) after adding a file.
 - [ ] **`%s:name` path parameter names** — `routef` templates carry no names, so OpenAPI path
       parameters are positional (`p0`) unless `Endpoints.pathParams` supplies them. Upstream
       Giraffe.OpenApi supports `%s:firstName`; adding it here means touching the matcher, which
