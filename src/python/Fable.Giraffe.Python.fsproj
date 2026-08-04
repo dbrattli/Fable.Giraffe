@@ -11,10 +11,6 @@
     <Description>Giraffe for Fable Python</Description>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson/Fable.TypedJson.fsproj" />
-    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson.Python/Fable.TypedJson.Python.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
@@ -41,7 +37,12 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
+         Fable.TypedJson requires, which NU1605 reports as a downgrade. -->
+    <PackageReference Update="FSharp.Core" Version="11.0.100" />
     <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <PackageReference Include="Fable.TypedJson" Version="5.0.0" />
+    <PackageReference Include="Fable.TypedJson.Python" Version="5.0.0" />
     <PackageReference Include="Fable.Logging" Version="1.0.0" />
     <PackageReference Include="Fable.Logging.Structlog" Version="1.0.0" />
     <PackageReference Include="Fable.Python" Version="5.4.0" />

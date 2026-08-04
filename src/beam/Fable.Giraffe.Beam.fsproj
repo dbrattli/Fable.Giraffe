@@ -11,10 +11,6 @@
     <Description>Giraffe for Fable BEAM (Cowboy)</Description>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson/Fable.TypedJson.fsproj" />
-    <ProjectReference Include="../../../Fable.TypedJson/src/Fable.TypedJson.Beam/Fable.TypedJson.Beam.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="PlatformHelpers.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="../Helpers.fs" Link="Helpers.fs" />
@@ -40,7 +36,12 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
+         Fable.TypedJson requires, which NU1605 reports as a downgrade. -->
+    <PackageReference Update="FSharp.Core" Version="11.0.100" />
     <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <PackageReference Include="Fable.TypedJson" Version="5.0.0" />
+    <PackageReference Include="Fable.TypedJson.Beam" Version="5.0.0" />
     <PackageReference Include="Fable.Beam" Version="5.0.0-rc.34" />
     <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0-rc.8" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />

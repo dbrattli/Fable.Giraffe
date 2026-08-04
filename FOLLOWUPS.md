@@ -73,10 +73,23 @@ visible until fixed.
       request lambda (`bindJson`, `validateJson`, `Remoting`), which costs ~193µs-1ms per request.
       Upstream fixes: make `Plan`'s `RecordPlan.Fields` / `CasePlan[]` process-portable (lists
       rather than arrays), or add the memo cache `PROMPT-serializer-additions.md` already tracks.
-- [ ] **Publish Fable.TypedJson 5.0.0-rc.2 and switch to a PackageReference** — the three
-      `src/*/Fable.Giraffe.*.fsproj` currently carry a `ProjectReference` to `../Fable.TypedJson`,
-      so `just pack` produces a package that cannot restore. Also resolves the FSharp.Core
-      downgrade warning (TypedJson wants 11.0.100, Fable.Giraffe pins 10.1.301).
+- [x] **Switch to a PackageReference** — DONE, on Fable.TypedJson **5.0.0**. `just pack` produces
+      restorable packages again, and `FSharp.Core` is pinned to 11.0.100 via
+      `<PackageReference Update=...>` (the SDK contributes its own implicit `Include`, so an
+      `Include` here is a duplicate) which clears the NU1605 downgrade warning.
+- [ ] **Move to Fable.TypedJson 5.0.1 when it ships** — 5.0.0 was cut from PR #49 *before* its
+      review fixes landed, so the published package still has three known defects that the
+      local `feat/schema-ref-mode` branch fixes (`54e81f7`):
+      - **`$ref` definitions keyed by simple `Name`.** Two types with the same simple name in
+        different modules collapse into one `components/schemas` entry and one of them is
+        described by the other's schema — a silently wrong OpenAPI document. Only bites when an
+        app actually has same-named types (e.g. `Api.User` / `Domain.User`); Fable.Giraffe's own
+        suite does not, which is why it is green.
+      - **Bare timestamps decode machine-dependently.** `"2026-08-03T14:30:15"` is read as local
+        time, so the same document yields different instants in different timezones.
+      - **BEAM rejects numeric UTC offsets.** `"…T16:30:15+02:00"` fails to parse entirely
+        (upstream: `../Fable/BEAM-DATETIME-ZONE-OFFSET-PROMPT.md`).
+      `DateTimeOffset` support also only exists on that branch.
 - [ ] **`%s:name` path parameter names** — `routef` templates carry no names, so OpenAPI path
       parameters are positional (`p0`) unless `Endpoints.pathParams` supplies them. Upstream
       Giraffe.OpenApi supports `%s:firstName`; adding it here means touching the matcher, which
