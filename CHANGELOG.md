@@ -1,12 +1,27 @@
 ---
-force_version: 5.3.0
-last_commit_released: 4020946b153b18572b4aa37e699ee35c0bdd41d0
+last_commit_released: 2409ef004be987ec43eb6692c8e2b8318faff8a3
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.3.0 - 2026-08-04
+
+### 🏗️ Breaking changes
+
+* OpenAPI 3.1 support, an opt-in endpoint layer, and typed JSON via Fable.TypedJson (#74) ([9528f3a](https://github.com/dbrattli/Fable.Giraffe/commit/9528f3ad38abe9cd2b2b0b2630abc5b4a8510bf9))
+
+### 🚀 Features
+
+* *(beam)* Enable logging and add a per-request access log (#70) ([e9a5fb4](https://github.com/dbrattli/Fable.Giraffe/commit/e9a5fb4479d7c39ed4fdcb1fc584e9f00ff33611))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Make DI work across Cowboy's per-request process (#71) ([f6d3bbc](https://github.com/dbrattli/Fable.Giraffe/commit/f6d3bbcc4965d9382697da5fb03221d7b2411eaa))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/4020946b153b18572b4aa37e699ee35c0bdd41d0..2409ef004be987ec43eb6692c8e2b8318faff8a3)</small></strong>
 
 ## 5.2.0 - 2026-07-26
 
