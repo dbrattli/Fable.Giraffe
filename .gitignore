@@ -138,7 +138,14 @@ obj/
 .vscode/
 Fable.Giraffe.sln.DotSettings.user
 
-# BEAM build output lives under build/ (already gitignored)
+# BEAM build output. The Justfile targets build/ (ignored above), but Fable and rebar3 land
+# elsewhere the moment anything else drives them — a consumer compiling this project by
+# ProjectReference, a rebar3 run at the repo root, or an outDir that follows the apps/ convention.
+# Generated .erl and its rebar3 output should never be a diff.
+apps/
+_build/
+rebar.lock
+fable_modules/
 
 .fake
 .claude/worktrees/
