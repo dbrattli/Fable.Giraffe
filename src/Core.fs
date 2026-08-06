@@ -242,6 +242,8 @@ module Core =
     /// Additive rather than a change to <c>bindJson</c>: apps opt in where they want it.
     /// </remarks>
     /// <param name="f">A function which accepts an object of type 'T and returns a <see cref="HttpHandler"/> function.</param>
+    /// <param name="next"></param>
+    /// <param name="ctx"></param>
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler"/> function which can be composed into a bigger web application.</returns>
     let inline validateJson<'T> (f: 'T -> HttpHandler) : HttpHandler =
@@ -319,7 +321,6 @@ module Core =
     /// It also sets the HTTP Content-Type header to application/json and sets the Content-Length header accordingly.
     /// </summary>
     /// <param name="dataObj">The object to be send back to the client.</param>
-    /// <param name="ctx"></param>
     /// <typeparam name="'T"></typeparam>
     /// <returns>A Giraffe <see cref="HttpHandler" /> function which can be composed into a bigger web application.</returns>
     /// <remarks>
