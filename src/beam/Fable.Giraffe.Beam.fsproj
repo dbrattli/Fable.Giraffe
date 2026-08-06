@@ -28,8 +28,11 @@
     <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
     <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
     <Compile Include="../Logging.fs" Link="Logging.fs" />
-    <Compile Include="WebHost.fs" />
+    <!-- Middleware before WebHost: WebHost routes Cowboy to GiraffeHandler.moduleAtom(), which
+         has to be defined in the module it names. Middleware itself depends only on HttpContext,
+         Core/Helpers, PlatformHelpers and Logging, all of which precede it. -->
     <Compile Include="Middleware.fs" />
+    <Compile Include="WebHost.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath="\" />

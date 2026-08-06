@@ -8,19 +8,17 @@ open Fable.Logging
 
 module Cowboy = Fable.Beam.Cowboy.Cowboy
 module CowboyRouter = Fable.Beam.Cowboy.CowboyRouter
+module Application = Fable.Beam.Application
 
 module CowboyFFI =
     /// Atom for the listener name.
     [<Emit("http")>]
     let httpAtom: Atom = nativeOnly
 
-    /// The Erlang module atom implementing the cowboy_handler behaviour.
-    /// Fable >= 5.8 qualifies generated BEAM module names with the source path inside the
-    /// assembly, so src/beam/Middleware.fs compiles to `src_beam_middleware` rather than
-    /// `middleware`. This atom is hand-written, so it has to track that name: move or rename
-    /// Middleware.fs and this must change with it, or Cowboy fails with `undef` on init/2.
-    [<Emit("src_beam_middleware")>]
-    let middlewareAtom: Atom = nativeOnly
+    /// The OTP application to start before the listener. Same text as `httpAtom`'s neighbour by
+    /// coincidence only — one names our listener, this one names cowboy itself.
+    [<Emit("cowboy")>]
+    let cowboyAppAtom: Atom = nativeOnly
 
     /// Cowboy's built-in static-file handler module. We delegate the whole static-serving
     /// problem — mime detection, ETags, Range requests, conditional requests — to it rather
@@ -115,9 +113,12 @@ type WebHostBuilder() =
                 let accessLogger = loggerFactory.CreateLogger("GiraffeHandler")
 
                 // Catch-all: every remaining path → middleware module with the composed pipeline,
-                // the portable service snapshot and the access logger as state.
+                // the portable service snapshot and the access logger as state. The handler module
+                // names itself (`GiraffeHandler.moduleAtom`) rather than being named here: the
+                // generated module name varies with how this project is consumed, and a stale
+                // hand-written atom only surfaces as `undef` at the first request.
                 let catchAllRoute =
-                    CowboyRouter.route "/[...]" CowboyFFI.middlewareAtom (func, serviceSnapshot, accessLogger)
+                    CowboyRouter.route "/[...]" (GiraffeHandler.moduleAtom ()) (func, serviceSnapshot, accessLogger)
 
                 let hostRule =
                     CowboyRouter.hostRule CowboyRouter.wildcard (staticRoutes @ [ catchAllRoute ])
@@ -127,10 +128,22 @@ type WebHostBuilder() =
                 let transportOpts = Cowboy.tcpPort port
                 let protoOpts = Cowboy.protocolOpts dispatch
 
-                Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts
-                |> ignore
+                // Cowboy and its dependencies (ranch, cowlib) are OTP applications and must be
+                // running before start_clear. Hosts that boot us from an `erl -eval` often do this
+                // themselves; doing it here means embedding Giraffe in an existing release works
+                // too. ensure_all_started is idempotent, so a host that already did it pays nothing.
+                let hostLogger = loggerFactory.CreateLogger("WebHost")
 
-                Fable.Beam.Io.format "Starting Giraffe on port ~p~n" [ box port ]
+                match Application.ensureAllStarted CowboyFFI.cowboyAppAtom with
+                | Ok _ -> ()
+                | Error reason -> hostLogger.LogError("Could not start the cowboy application: {Reason}", reason)
+
+                // Report through the logger, not stdout: a host may be sharing stdout with a REPL
+                // or another interactive stream. And a discarded start_clear result means a busy
+                // port looks like a successful boot that then serves nothing.
+                match Cowboy.startClear CowboyFFI.httpAtom transportOpts protoOpts with
+                | Ok _ -> hostLogger.LogInformation("Giraffe listening on port {Port}", port)
+                | Error reason -> hostLogger.LogError("Giraffe failed to listen on port {Port}: {Reason}", port, reason)
 
     member this.Configure(configureApp: Action<IApplicationBuilder>) =
         (this :> IWebHostBuilder).Configure(configureApp)
