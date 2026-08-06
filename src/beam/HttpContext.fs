@@ -9,6 +9,7 @@ open Fable.Giraffe.Json
 open Fable.Beam.Cowboy.CowboyReq
 
 module CowboyReq = Fable.Beam.Cowboy.CowboyReq
+module Maps = Fable.Beam.Maps
 
 /// A body pre-buffered into the request map under `giraffe_body`. The in-process test harness
 /// seeds it there because it has no live socket for `cowboy_req:read_body` to stream from; real
@@ -29,9 +30,26 @@ type HttpRequest(req: Req) =
 
     member x.Protocol: string = CowboyReq.scheme req
 
+    /// The request headers as Cowboy parsed them: one entry per name, names already lowercase.
+    ///
+    /// Cowboy is the normalising layer here — a client's `Authorization` arrives as
+    /// `authorization`, and repeated headers are folded into a single comma-joined value — so
+    /// this is a plain map read rather than a reimplementation of header semantics.
+    member private x.HeaderPairs = Maps.maps.to_list (CowboyReq.headers req)
+
     member x.GetTypedHeaders() : RequestHeaders =
-        // Convert Cowboy headers map to the expected format
-        RequestHeaders(ResizeArray())
+        // RequestHeaders reads rows of [name; value; ...], the same shape the Python/ASGI
+        // backend produces from `scope["headers"]`. Cowboy's map holds one value per name, so
+        // every row here is exactly two elements — matching Python, where HeaderDictionary.Scoped
+        // likewise joins multiple values into one string before the row is built.
+        let rows = ResizeArray<ResizeArray<string>>()
+
+        // An explicit loop, not Seq.map: on fable-beam, Seq.map over a ResizeArray passes a Ref
+        // where a list is expected (see HttpResponse below).
+        for (name, value) in x.HeaderPairs do
+            rows.Add(ResizeArray([ name; value ]))
+
+        RequestHeaders(rows)
 
     member x.GetBodyAsync() =
         task {
@@ -42,7 +60,15 @@ type HttpRequest(req: Req) =
                 return body
         }
 
-    member x.Headers = HeaderDictionary()
+    /// invariant: keys are lowercase, because Cowboy lowercases them. HeaderDictionary's indexer
+    ///            lowercases the lookup key too, so `headers["Content-Type"]` still resolves.
+    member x.Headers =
+        let dict = Dictionary<string, string>()
+
+        for (name, value) in x.HeaderPairs do
+            dict[name] <- value
+
+        HeaderDictionary(dict)
 
 /// HTTP response that accumulates state before sending via cowboy_req:reply.
 /// Uses mutable F# list for headers — avoids fable-beam ResizeArray/Seq
