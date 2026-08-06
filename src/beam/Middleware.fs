@@ -2,6 +2,7 @@ namespace Fable.Giraffe
 
 open System.Threading.Tasks
 open Fable.Core
+open Fable.Beam
 open Fable.Beam.Cowboy.CowboyReq
 open Fable.Logging
 
@@ -18,6 +19,25 @@ module GiraffeHandler =
     /// On BEAM, Task CE is a CPS alias for Async. Identity cast.
     [<Emit("$0")>]
     let private taskToAsync (t: Task<'a>) : Async<'a> = nativeOnly
+
+    [<Emit("?MODULE")>]
+    let private selfModule () : Atom = nativeOnly
+
+    /// This module's own Erlang atom, for the caller that routes Cowboy here.
+    ///
+    /// Fable derives generated BEAM module names from the source path, and that path depends on
+    /// how the project is consumed: compiled standalone this file becomes
+    /// `fable_giraffe_beam_middleware`, referenced from a sibling app it becomes
+    /// `src_beam_middleware`, and referenced from another repository it becomes
+    /// `fable_giraffe_src_beam_middleware`. A hand-written atom cannot track that, and a wrong
+    /// one fails at the first request with `undef` on `init/2` rather than at startup.
+    ///
+    /// `?MODULE` is expanded by the Erlang preprocessor in the file the text appears in, and
+    /// `[<Emit>]` is inlined at the *call site* — so this has to live here and be reached
+    /// through an ordinary cross-module call. Do not mark it `inline`, and do not lift the
+    /// `[<Emit>]` into a value that WebHost references: either would expand `?MODULE` in the
+    /// caller and yield the caller's name.
+    let moduleAtom () : Atom = selfModule ()
 
     /// Monotonic clock for the access log. Fable.Beam's `Erlang.monotonicTimeMs` is
     /// millisecond-resolution, which rounds most handler runs to 0 — read microseconds so the
