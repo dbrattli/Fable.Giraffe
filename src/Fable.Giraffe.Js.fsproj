@@ -7,7 +7,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
-    <PackageTags>web;fsharp;javascript;node;giraffe;fable;express;connect</PackageTags>
+    <PackageTags>fsharp;fable;fable-library;fable-javascript;giraffe;web;node</PackageTags>
     <Description>Giraffe for Fable JavaScript (Node)</Description>
   </PropertyGroup>
   <ItemGroup>
