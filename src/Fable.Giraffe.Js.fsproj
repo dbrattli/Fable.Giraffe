@@ -7,34 +7,34 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
-    <PackageTags>web;fsharp;javascript;node;giraffe;fable;express;connect</PackageTags>
+    <PackageTags>fsharp;fable;fable-library;fable-javascript;giraffe;web;node</PackageTags>
     <Description>Giraffe for Fable JavaScript (Node)</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PlatformHelpers.fs" />
-    <Compile Include="Json.fs" />
-    <Compile Include="../Helpers.fs" Link="Helpers.fs" />
-    <Compile Include="../Http.fs" Link="Http.fs" />
-    <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
-    <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
+    <Compile Include="js/PlatformHelpers.fs" />
+    <Compile Include="js/Json.fs" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Http.fs" />
+    <Compile Include="ShortGuid.fs" />
+    <Compile Include="FormatExpressions.fs" />
     <!-- Node-native context (wraps http req/res directly; no dependency on other backends) -->
-    <Compile Include="HttpContext.fs" />
-    <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
-    <Compile Include="../Core.fs" Link="Core.fs" />
-    <Compile Include="../Routing.fs" Link="Routing.fs" />
-    <Compile Include="../Endpoints.fs" Link="Endpoints.fs" />
-    <Compile Include="../Remoting.fs" Link="Remoting.fs" />
-    <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
-    <Compile Include="../OpenApi.fs" Link="OpenApi.fs" />
-    <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
-    <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
-    <Compile Include="Server.fs" />
-    <Compile Include="../Logging.fs" Link="Logging.fs" />
-    <Compile Include="WebHost.fs" />
+    <Compile Include="js/HttpContext.fs" />
+    <Compile Include="HttpContextExtensions.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Endpoints.fs" />
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Negotiation.fs" />
+    <Compile Include="OpenApi.fs" />
+    <Compile Include="HttpHandler.fs" />
+    <Compile Include="HttpStatusCodeHandlers.fs" />
+    <Compile Include="js/Server.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="js/WebHost.fs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
     <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
@@ -49,6 +49,8 @@
     <PackageReference Include="Fable.Logging" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="*.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />
+    <!-- See Fable.Giraffe.Beam.fsproj. -->
+    <Content Include="$(MSBuildProjectFile); *.fs; *.fsi" PackagePath="fable\" />
+    <Content Include="js\*.fs; js\*.fsi" PackagePath="fable\js\" />
   </ItemGroup>
 </Project>

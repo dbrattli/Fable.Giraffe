@@ -22,6 +22,6 @@
     <PackageReference Include="Scriptorium.Nib" Version="0.4.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\js\Fable.Giraffe.Js.fsproj" />
+    <ProjectReference Include="..\..\src\Fable.Giraffe.Js.fsproj" />
   </ItemGroup>
 </Project>

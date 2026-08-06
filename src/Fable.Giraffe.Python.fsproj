@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryUrl>https://github.com/dbrattli/Fable.Giraffe</RepositoryUrl>
+    <PackageTags>fsharp;fable;fable-library;fable-python;giraffe;web;python;asgi</PackageTags>
+    <Description>Giraffe for Fable Python</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="python/PlatformHelpers.fs" />
+    <Compile Include="python/Json.fs" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Http.fs" />
+    <Compile Include="ShortGuid.fs" />
+    <Compile Include="FormatExpressions.fs" />
+    <Compile Include="python/HttpContext.fs" />
+    <Compile Include="HttpContextExtensions.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Endpoints.fs" />
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Negotiation.fs" />
+    <Compile Include="OpenApi.fs" />
+    <Compile Include="HttpHandler.fs" />
+    <Compile Include="HttpStatusCodeHandlers.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="python/WebHost.fs" />
+    <Compile Include="python/Middleware.fs" />
+    <Compile Include="python/StaticFiles.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
+         Fable.TypedJson requires, which NU1605 reports as a downgrade. -->
+    <PackageReference Update="FSharp.Core" Version="11.0.100" />
+    <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <!-- Core is 5.0.1 (the $ref-collision and date-parsing fixes); the backend
+         shims are unchanged since 5.0.0 and were not rebuilt. They resolve
+         against whichever core NuGet picks, which is the 5.0.1 requested here. -->
+    <PackageReference Include="Fable.TypedJson" Version="5.0.1" />
+    <PackageReference Include="Fable.TypedJson.Python" Version="5.0.0" />
+    <PackageReference Include="Fable.Logging" Version="1.0.0" />
+    <PackageReference Include="Fable.Logging.Structlog" Version="1.0.0" />
+    <PackageReference Include="Fable.Python" Version="5.4.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- See src/beam: the shared ../*.fs were never packaged, and `**\*.fs` swept in obj/.
+         pyproject.toml stays at fable/; no Compile item refers to it. -->
+    <Content Include="..\pyproject.toml" PackagePath="fable\" />
+    <Content Include="$(MSBuildProjectFile); *.fs; *.fsi" PackagePath="fable\" />
+    <Content Include="python\*.fs; python\*.fsi" PackagePath="fable\python\" />
+  </ItemGroup>
+</Project>
