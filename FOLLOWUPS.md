@@ -21,9 +21,15 @@ visible until fixed.
 - [ ] **`routef` typed captures on JS/BEAM** — `%O` (Guid), `%i`, `%u` diverge (`%s` works);
       the affected `routef` cases are skipped on JS and BEAM. Likely `FormatExpressions`
       parsing/conversion differences on those targets. `src/FormatExpressions.fs`.
-- [ ] **BEAM `GetTypedHeaders()` is a stub** — returns empty (`RequestHeaders(ResizeArray())`),
-      so `mustAccept` / content negotiation can't resolve; the 3 Accept-header cases are
-      skipped on BEAM. Implement real Cowboy header reading. `src/beam/HttpContext.fs`.
+- [x] **BEAM request headers were a stub** — FIXED. `GetTypedHeaders()` returned an empty
+      `RequestHeaders` and `Headers` an empty `HeaderDictionary`, so `mustAccept` / content
+      negotiation could not resolve and no handler could read a header at all — a `/mcp`-style
+      endpoint gating on `Authorization` had to reach past Giraffe to `cowboy_req:header/3`.
+      Both now read `cowboy_req:headers/1`, whose map is already lowercase-keyed with duplicates
+      folded, matching the Python/ASGI row shape. The 3 Accept cases are un-skipped and two
+      direct header-reading tests were added. `src/beam/HttpContext.fs`.
+      The BEAM `TestContext` was the other half: it accepted a `?headers` argument and silently
+      dropped it, so the suite could not have caught this. It now seeds them into the fake Req.
 
 ## BEAM DI / logging
 

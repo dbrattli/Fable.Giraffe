@@ -147,9 +147,6 @@ let tests =
 
           testAsync (
               "POST \"/text\" with supported Accept header returns \"text\"",
-              // BEAM's HttpRequest.GetTypedHeaders() is a stub returning empty, so
-              // mustAccept/Accept-negotiation cannot resolve (tracked: implement Cowboy headers).
-              skipIfBeam,
               fun _ ->
                   toAsync (
                       task {
@@ -191,8 +188,6 @@ let tests =
 
           testAsync (
               "POST \"/json\" with supported Accept header returns \"json\"",
-              // BEAM: headers stub, see above.
-              skipIfBeam,
               fun _ ->
                   toAsync (
                       task {
@@ -234,8 +229,6 @@ let tests =
 
           testAsync (
               "POST \"/either\" with supported Accept header returns \"either\"",
-              // BEAM: headers stub, see above.
-              skipIfBeam,
               fun _ ->
                   toAsync (
                       task {
@@ -452,6 +445,43 @@ let tests =
                               // answering rather than throwing.
                               let payload = readBody () |> Encoding.UTF8.GetString
                               assertThat (payload.Contains "age") isTrue
+                      }
+                  )
+          )
+
+          testAsync (
+              "HttpRequest.Headers reads an arbitrary request header",
+              // Not just Accept: a handler that gates on `Authorization` needs the raw
+              // dictionary, which BEAM used to answer as permanently empty.
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Authorization", StringValues("Bearer s3cret"))
+                          headers.Add("X-Request-Id", StringValues("abc123"))
+
+                          let testCtx, _ = TestContext.create (path = "/", headers = headers)
+
+                          assertThat (testCtx.Request.Headers["Authorization"][0]) (isEqualTo "Bearer s3cret")
+                          assertThat (testCtx.Request.Headers["X-Request-Id"][0]) (isEqualTo "abc123")
+                      }
+                  )
+          )
+
+          testAsync (
+              "HttpRequest.Headers lookup is case-insensitive",
+              // Names travel lowercase on the wire-facing backends (Cowboy and ASGI both
+              // normalise), so the indexer has to fold the *lookup* key to match.
+              fun _ ->
+                  toAsync (
+                      task {
+                          let headers = HeaderDictionary()
+                          headers.Add("Authorization", StringValues("Bearer s3cret"))
+
+                          let testCtx, _ = TestContext.create (path = "/", headers = headers)
+
+                          assertThat (testCtx.Request.Headers["AUTHORIZATION"][0]) (isEqualTo "Bearer s3cret")
+                          assertThat (testCtx.Request.Headers["authorization"][0]) (isEqualTo "Bearer s3cret")
                       }
                   )
           ) ]
