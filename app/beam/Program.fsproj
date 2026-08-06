@@ -12,6 +12,6 @@
     <PackageReference Include="Fable.Core" Version="5.1.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\beam\Fable.Giraffe.Beam.fsproj" />
+    <ProjectReference Include="..\..\src\Fable.Giraffe.Beam.fsproj" />
   </ItemGroup>
 </Project>

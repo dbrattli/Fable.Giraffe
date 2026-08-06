@@ -11,32 +11,38 @@
     <Description>Giraffe for Fable BEAM (Cowboy)</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PlatformHelpers.fs" />
-    <Compile Include="Json.fs" />
-    <Compile Include="../Helpers.fs" Link="Helpers.fs" />
-    <Compile Include="../Http.fs" Link="Http.fs" />
-    <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
-    <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
-    <Compile Include="HttpContext.fs" />
-    <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
-    <Compile Include="../Core.fs" Link="Core.fs" />
-    <Compile Include="../Routing.fs" Link="Routing.fs" />
-    <Compile Include="../Endpoints.fs" Link="Endpoints.fs" />
-    <Compile Include="../Remoting.fs" Link="Remoting.fs" />
-    <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
-    <Compile Include="../OpenApi.fs" Link="OpenApi.fs" />
-    <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
-    <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
-    <Compile Include="../Logging.fs" Link="Logging.fs" />
+    <Compile Include="beam/PlatformHelpers.fs" />
+    <Compile Include="beam/Json.fs" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Http.fs" />
+    <Compile Include="ShortGuid.fs" />
+    <Compile Include="FormatExpressions.fs" />
+    <Compile Include="beam/HttpContext.fs" />
+    <Compile Include="HttpContextExtensions.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Endpoints.fs" />
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Negotiation.fs" />
+    <Compile Include="OpenApi.fs" />
+    <Compile Include="HttpHandler.fs" />
+    <Compile Include="HttpStatusCodeHandlers.fs" />
+    <Compile Include="Logging.fs" />
     <!-- Middleware before WebHost: WebHost routes Cowboy to GiraffeHandler.moduleAtom(), which
-         has to be defined in the module it names. Middleware itself depends only on HttpContext,
-         Core/Helpers, PlatformHelpers and Logging, all of which precede it. -->
-    <Compile Include="Middleware.fs" />
-    <Compile Include="WebHost.fs" />
+         has to be defined in the module it names. -->
+    <Compile Include="beam/Middleware.fs" />
+    <Compile Include="beam/WebHost.fs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Fable compiles from the sources under fable/, not the DLL. Every Compile path must stay
+         inside this project's directory or it cannot be packed there; that is why this fsproj
+         lives at src/ rather than src/beam/. -->
+    <Content Include="$(MSBuildProjectFile); *.fs; *.fsi" PackagePath="fable\" />
+    <Content Include="beam\*.fs; beam\*.fsi" PackagePath="fable\beam\" />
   </ItemGroup>
   <ItemGroup>
     <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one

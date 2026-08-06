@@ -12,6 +12,6 @@
     <PackageReference Include="Fable.Core" Version="5.2.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\python\Fable.Giraffe.Python.fsproj" />
+    <ProjectReference Include="..\..\src\Fable.Giraffe.Python.fsproj" />
   </ItemGroup>
 </Project>

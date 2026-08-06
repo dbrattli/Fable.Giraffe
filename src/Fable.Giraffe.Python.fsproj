@@ -11,30 +11,30 @@
     <Description>Giraffe for Fable Python</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PlatformHelpers.fs" />
-    <Compile Include="Json.fs" />
-    <Compile Include="../Helpers.fs" Link="Helpers.fs" />
-    <Compile Include="../Http.fs" Link="Http.fs" />
-    <Compile Include="../ShortGuid.fs" Link="ShortGuid.fs" />
-    <Compile Include="../FormatExpressions.fs" Link="FormatExpressions.fs" />
-    <Compile Include="HttpContext.fs" />
-    <Compile Include="../HttpContextExtensions.fs" Link="HttpContextExtensions.fs" />
-    <Compile Include="../Core.fs" Link="Core.fs" />
-    <Compile Include="../Routing.fs" Link="Routing.fs" />
-    <Compile Include="../Endpoints.fs" Link="Endpoints.fs" />
-    <Compile Include="../Remoting.fs" Link="Remoting.fs" />
-    <Compile Include="../Negotiation.fs" Link="Negotiation.fs" />
-    <Compile Include="../OpenApi.fs" Link="OpenApi.fs" />
-    <Compile Include="../HttpHandler.fs" Link="HttpHandler.fs" />
-    <Compile Include="../HttpStatusCodeHandlers.fs" Link="HttpStatusCodeHandlers.fs" />
-    <Compile Include="../Logging.fs" Link="Logging.fs" />
-    <Compile Include="WebHost.fs" />
-    <Compile Include="Middleware.fs" />
-    <Compile Include="StaticFiles.fs" />
+    <Compile Include="python/PlatformHelpers.fs" />
+    <Compile Include="python/Json.fs" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Http.fs" />
+    <Compile Include="ShortGuid.fs" />
+    <Compile Include="FormatExpressions.fs" />
+    <Compile Include="python/HttpContext.fs" />
+    <Compile Include="HttpContextExtensions.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Endpoints.fs" />
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Negotiation.fs" />
+    <Compile Include="OpenApi.fs" />
+    <Compile Include="HttpHandler.fs" />
+    <Compile Include="HttpStatusCodeHandlers.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="python/WebHost.fs" />
+    <Compile Include="python/Middleware.fs" />
+    <Compile Include="python/StaticFiles.fs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
     <!-- Pinned explicitly: the SDK's implicit FSharp.Core is older than the one
@@ -51,6 +51,10 @@
     <PackageReference Include="Fable.Python" Version="5.4.0" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\..\pyproject.toml; *.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />
+    <!-- See src/beam: the shared ../*.fs were never packaged, and `**\*.fs` swept in obj/.
+         pyproject.toml stays at fable/; no Compile item refers to it. -->
+    <Content Include="..\pyproject.toml" PackagePath="fable\" />
+    <Content Include="$(MSBuildProjectFile); *.fs; *.fsi" PackagePath="fable\" />
+    <Content Include="python\*.fs; python\*.fsi" PackagePath="fable\python\" />
   </ItemGroup>
 </Project>

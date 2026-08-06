@@ -1,5 +1,5 @@
 build_path := "build"
-src_path := "src/python"
+src_path := "src/Fable.Giraffe.Python.fsproj"
 test_path := "test"
 app_path := "app"
 
@@ -24,7 +24,7 @@ build: clean
     {{fable}} {{src_path}} --exclude Fable.Core --lang Python --outDir {{build_path}}/lib
 
 build-beam: clean-beam
-    {{fable_beam}} src/beam --exclude Fable.Core --lang beam --outDir {{build_path}}/apps/giraffe
+    {{fable_beam}} src/Fable.Giraffe.Beam.fsproj --exclude Fable.Core --lang beam --outDir {{build_path}}/apps/giraffe
     cp rebar.config {{build_path}}/
     cd {{build_path}} && rebar3 compile
 
@@ -41,7 +41,7 @@ app-beam: build-beam
 # Compile the F# library to JavaScript (output: build/js/)
 build-js: clean
     mkdir -p {{build_path}}
-    {{fable}} src/js --exclude Fable.Core --lang javascript --outDir {{build_path}}/js
+    {{fable}} src/Fable.Giraffe.Js.fsproj --exclude Fable.Core --lang javascript --outDir {{build_path}}/js
 
 # Build + start the example app on Node's built-in http server (port 8080)
 app-js: clean
@@ -79,9 +79,9 @@ test-beam:
     cd {{build_path}}/tests-beam && erl -noshell -pa _build/default/lib/*/ebin -eval 'main:main([])'
 
 pack: build
-    dotnet pack -c Release src/python
-    dotnet pack -c Release src/js
-    dotnet pack -c Release src/beam
+    dotnet pack -c Release src/Fable.Giraffe.Python.fsproj
+    dotnet pack -c Release src/Fable.Giraffe.Js.fsproj
+    dotnet pack -c Release src/Fable.Giraffe.Beam.fsproj
 
 format:
     dotnet fantomas src
@@ -94,9 +94,9 @@ setup:
 
 # Create NuGet packages with specific version (used in CI) — Python, JS and BEAM
 pack-version version:
-    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/python
-    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/js
-    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/beam
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/Fable.Giraffe.Python.fsproj
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/Fable.Giraffe.Js.fsproj
+    dotnet pack -c Release -p:PackageVersion={{version}} -p:InformationalVersion={{version}} src/Fable.Giraffe.Beam.fsproj
 
 # Run EasyBuild.ShipIt for release management (opens/updates the release PR)
 shipit *args:

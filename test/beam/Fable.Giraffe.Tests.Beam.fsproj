@@ -24,6 +24,6 @@
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\beam\Fable.Giraffe.Beam.fsproj" />
+    <ProjectReference Include="..\..\src\Fable.Giraffe.Beam.fsproj" />
   </ItemGroup>
 </Project>
