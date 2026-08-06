@@ -1,11 +1,20 @@
 ---
-last_commit_released: 2409ef004be987ec43eb6692c8e2b8318faff8a3
+last_commit_released: b7006e20da54b25db6fddf271d3f5f424de6b62a
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.3.1 - 2026-08-06
+
+### 🐞 Bug Fixes
+
+* Make the published packages Fable-consumable (#78) ([b7006e2](https://github.com/dbrattli/Fable.Giraffe/commit/b7006e20da54b25db6fddf271d3f5f424de6b62a))
+* *(beam)* Make embedding in a host application work (#76) ([9bdd1d4](https://github.com/dbrattli/Fable.Giraffe/commit/9bdd1d4f548bb9c057e146721d4db0281db57afd))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/2409ef004be987ec43eb6692c8e2b8318faff8a3..b7006e20da54b25db6fddf271d3f5f424de6b62a)</small></strong>
 
 ## 5.3.0 - 2026-08-04
 
