@@ -51,6 +51,26 @@ let serializeAs (t: System.Type) (value: obj) : string = (codecFor t).encode val
 /// an F# type.
 let deserialize (s: string) : obj = parseRaw s
 
+/// Raw JSON operations used by protocol adapters which must preserve arbitrary values.
+let rawContains (key: string) (value: obj) : bool = python.ContainsKey(value, key)
+let rawGet (key: string) (value: obj) : obj = python.Get(value, key)
+let rawIsArray (value: obj) : bool = python.IsArray value
+let rawIsMap (value: obj) : bool = python.IsMap value
+let rawIsString (value: obj) : bool = python.IsString value
+
+let rawIsNumber (value: obj) : bool =
+    python.IsInt value || python.IsFloat value
+
+let rawIsNull (value: obj) : bool = python.IsNull value
+let rawAsString (value: obj) : string = python.AsString value
+let rawToJson (value: obj) : string = python.Stringify value
+let rawNull: obj = python.Null
+
+let rawObject (fields: (string * obj) list) : obj =
+    Fable.TypedJson.Json.Encode.object python fields
+
+let rawArray (items: obj list) : obj = python.BuildArray items
+
 /// Decode into `'T`, accumulating a per-field error list rather than throwing.
 let inline tryDeserialize<'T> (s: string) : Result<'T, FieldError list> = (codec<'T> ()).decode (parseRaw s)
 

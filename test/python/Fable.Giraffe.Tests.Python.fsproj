@@ -15,6 +15,7 @@
     <Compile Include="../shared/EndpointTests.fs" />
     <Compile Include="../shared/OpenApiTests.fs" />
     <Compile Include="../shared/RemotingTests.fs" />
+    <Compile Include="../shared/McpTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
