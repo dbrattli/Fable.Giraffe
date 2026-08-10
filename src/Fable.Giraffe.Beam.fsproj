@@ -52,8 +52,8 @@
     <!-- Core is 5.0.1 (the $ref-collision and date-parsing fixes); the backend
          shims are unchanged since 5.0.0 and were not rebuilt. They resolve
          against whichever core NuGet picks, which is the 5.0.1 requested here. -->
-    <PackageReference Include="Fable.TypedJson" Version="5.0.1" />
-    <PackageReference Include="Fable.TypedJson.Beam" Version="5.0.0" />
+    <PackageReference Include="Fable.TypedJson" Version="5.1.0" />
+    <PackageReference Include="Fable.TypedJson.Beam" Version="5.1.0" />
     <PackageReference Include="Fable.Beam" Version="5.0.0-rc.34" />
     <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0-rc.8" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
