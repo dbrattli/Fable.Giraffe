@@ -20,6 +20,7 @@
     <Compile Include="beam/HttpContext.fs" />
     <Compile Include="HttpContextExtensions.fs" />
     <Compile Include="Core.fs" />
+    <Compile Include="Mcp.fs" />
     <Compile Include="Routing.fs" />
     <Compile Include="Endpoints.fs" />
     <Compile Include="Remoting.fs" />

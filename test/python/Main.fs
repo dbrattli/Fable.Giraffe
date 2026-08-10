@@ -11,4 +11,5 @@ let main _ =
           RoutingTests.tests
           EndpointTests.tests
           OpenApiTests.tests
-          RemotingTests.tests ]
+          RemotingTests.tests
+          McpTests.tests ]

@@ -213,6 +213,41 @@ A malformed body answers 400 with field-level errors; an exception raised by an
 API method answers 500 without leaking it (`Remoting.withErrorHandler` replaces
 that default).
 
+## Model Context Protocol
+
+`Fable.Giraffe.Mcp` provides a portable JSON-RPC/MCP core on Python, JavaScript,
+and BEAM. It parses one MCP message, preserves string, numeric, and null request
+IDs and arbitrary tool arguments, and handles initialization, ping, tool discovery,
+tool-call validation, protocol errors, and accepted notifications. The application
+retains ownership of tool execution and policy:
+
+```fsharp
+let server = {
+    Info = { Name = "example"; Version = "1.0.0" }
+    ProtocolVersions = [ "2025-11-25" ]
+}
+
+match Mcp.handleRequest server tools requestBody with
+| Mcp.NoResponse -> "" // accepted notification
+| Mcp.Respond json -> json
+| Mcp.CallTool(id, call) ->
+    execute call
+    |> Mcp.completeToolCall id
+```
+
+`completeToolCall` is a convenience for a single text content block. Use
+`buildResult` with a complete result JSON object for images, resources,
+`structuredContent`, metadata, or application-implemented MCP methods.
+
+`streamableHttp` implements the synchronous POST/JSON subset of Streamable HTTP:
+JSON-RPC responses become HTTP 200 `application/json`, while accepted
+notifications become an empty HTTP 202 response. Compose authentication, Origin
+and Accept validation, the `MCP-Protocol-Version` header, sessions, timeouts, and
+GET/SSE behavior at the application boundary. MCP transport bodies contain one
+message; JSON-RPC batches are rejected. Lifecycle state enforcement is likewise
+left to a session-aware application—the core performs initialization negotiation
+but does not remember whether a client has sent `notifications/initialized`.
+
 ## Prerequisites
 
 - .NET SDK 8+
