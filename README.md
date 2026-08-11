@@ -248,6 +248,40 @@ message; JSON-RPC batches are rejected. Lifecycle state enforcement is likewise
 left to a session-aware application—the core performs initialization negotiation
 but does not remember whether a client has sent `notifications/initialized`.
 
+Typed tool registration can derive the input schema and decode arguments without
+runtime attribute discovery:
+
+```fsharp
+type EchoInput = { Text: string }
+
+let tools = [
+    Mcp.Tools.defineSync "echo" (fun input ->
+        { Content = input.Text; IsError = false })
+    |> Mcp.Tools.description "Echo text"
+]
+
+let webApp =
+    POST
+    >=> route "/mcp"
+    >=> Mcp.Tools.host server tools
+```
+
+`define` accepts an asynchronous `EchoInput -> Async<Mcp.ToolResult>` function;
+`defineSync` is the synchronous convenience. Registration is explicit so function
+references, generic input types, schema generation and invocation remain portable
+under Fable. Decode failures become MCP tool errors, while unexpected application
+exceptions become a non-leaking JSON-RPC `Internal error`.
+
+The Python, JavaScript and BEAM example apps all compile
+[`app/McpExample.fs`](app/McpExample.fs) and expose its typed `greet` tool at
+`POST /mcp`. After starting any example, try it with:
+
+```console
+curl http://127.0.0.1:8080/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"greet","arguments":{"name":"Fable"}}}'
+```
+
 ## Prerequisites
 
 - .NET SDK 8+

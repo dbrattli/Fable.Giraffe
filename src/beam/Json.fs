@@ -82,6 +82,11 @@ let inline tryDeserialize<'T> (s: string) : Result<'T, FieldError list> = (codec
 let renderJson (value: JsonSchemaValue) : string =
     Fable.TypedJson.JsonSchemaGen.schemaValueToJson beam value
 
+/// The inline JSON Schema for a reflected type. Protocol descriptions such as
+/// MCP tool input schemas need a self-contained schema rather than OpenAPI refs.
+let schemaFor (t: System.Type) : string =
+    Fable.TypedJson.JsonSchemaGen.schemaJsonFor beam emptyRegistry Map.empty CaseRules.LowerFirst t
+
 /// The `$ref`-mode JSON Schema for a reflected type: its own fragment (a `$ref`
 /// for any record or union) plus every type reached beneath it, keyed by name.
 ///

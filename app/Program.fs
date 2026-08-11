@@ -44,7 +44,10 @@ let endpoints =
             |> summary "Greet someone"
             |> accepts<Model>
             |> respondsWith<string> 200 "text/plain"
-            |> respondsWith<string> 422 "application/json" ] ]
+            |> respondsWith<string> 422 "application/json"
+
+            // One typed MCP tool definition is shared by the Python, JavaScript and BEAM apps.
+            route "/mcp" McpExample.handler ] ]
 
 let webApp =
     endpoints

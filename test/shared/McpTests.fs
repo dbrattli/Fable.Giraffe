@@ -19,6 +19,17 @@ let private tools =
         Description = "Echo text"
         InputSchemaJson = """{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}""" } ]
 
+type EchoInput = { Text: string }
+
+let private typedTools =
+    [ Tools.defineSync "echo" (fun input ->
+          { Content = input.Text
+            IsError = false })
+      |> Tools.description "Echo text"
+
+      Tools.defineSync "explode" (fun (_: EchoInput) -> failwith "application secret")
+      |> Tools.description "Throw an exception" ]
+
 let private responseJson =
     function
     | Respond json -> json
@@ -227,6 +238,71 @@ let tests =
                   assertThat (error |> rawGet "code" |> rawToJson) (isEqualTo "-32600")
           )
 
+          test (
+              "typed tool registration derives its protocol description and input schema",
+              fun _ ->
+                  let echo = Tools.protocolTools typedTools |> List.head
+                  assertThat echo.Name (isEqualTo "echo")
+                  assertThat echo.Description (isEqualTo "Echo text")
+
+                  let schema = deserialize echo.InputSchemaJson
+                  assertThat (schema |> rawGet "type" |> rawAsString) (isEqualTo "object")
+
+                  assertThat
+                      (schema
+                       |> rawGet "properties"
+                       |> rawGet "text"
+                       |> rawGet "type"
+                       |> rawAsString)
+                      (isEqualTo "string")
+          )
+
+          testAsync (
+              "typed dispatcher decodes arguments and executes application code",
+              fun _ ->
+                  async {
+                      let! response =
+                          Tools.dispatcher
+                              server
+                              typedTools
+                              """{"jsonrpc":"2.0","id":"typed","method":"tools/call","params":{"name":"echo","arguments":{"text":"hello"}}}"""
+
+                      let result = response |> Option.get |> field "result"
+                      assertThat ((result |> rawGet "content" |> rawToJson).Contains("hello")) isTrue
+                  }
+          )
+
+          testAsync (
+              "typed dispatcher reports decoding failures as tool errors",
+              fun _ ->
+                  async {
+                      let! response =
+                          Tools.dispatcher
+                              server
+                              typedTools
+                              """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{}}}"""
+
+                      let result = response |> Option.get |> field "result"
+                      assertThat (result |> rawGet "isError" |> rawToJson) (isEqualTo "true")
+                  }
+          )
+
+          testAsync (
+              "typed dispatcher hides application exceptions behind Internal error",
+              fun _ ->
+                  async {
+                      let! response =
+                          Tools.dispatcher
+                              server
+                              typedTools
+                              """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"explode","arguments":{"text":"boom"}}}"""
+
+                      let error = response |> Option.get |> field "error"
+                      assertThat (error |> rawGet "code" |> rawToJson) (isEqualTo "-32603")
+                      assertThat ((error |> rawGet "message" |> rawAsString).Contains("secret")) isFalse
+                  }
+          )
+
           testAsync (
               "streamable HTTP maps notifications to 202",
               fun _ ->
@@ -253,6 +329,24 @@ let tests =
                           assertThat ctx.Response.StatusCode (isEqualTo 200)
                           assertThat (ctx.Response.Headers["content-type"]).[0] (isEqualTo "application/json")
                           assertThat (Encoding.UTF8.GetString(readBody ())) (isEqualTo response)
+                      }
+                  )
+          )
+
+          testAsync (
+              "typed tools mount as an asynchronous Giraffe handler",
+              fun _ ->
+                  toAsync (
+                      task {
+                          let request =
+                              """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hosted"}}}"""
+
+                          let ctx, readBody = TestContext.create (method = "POST", body = request)
+                          let! result = Tools.host server typedTools next ctx
+                          assertThat result.IsSome isTrue
+                          assertThat ctx.Response.StatusCode (isEqualTo 200)
+
+                          assertThat ((Encoding.UTF8.GetString(readBody ())).Contains("hosted")) isTrue
                       }
                   )
           ) ]

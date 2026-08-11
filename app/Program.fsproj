@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="public/index.html" />
+    <Compile Include="McpExample.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

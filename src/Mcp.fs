@@ -33,6 +33,14 @@ type Action =
     | Respond of string
     | CallTool of RequestId * ToolCall
 
+/// A typed tool registration with its protocol description and application executor.
+/// The executor accepts raw arguments so heterogeneous definitions can share one list;
+/// `Tools.define` restores the input type before invoking application code.
+type ToolDefinition =
+    private
+        { ProtocolTool: Tool
+          Execute: string -> Async<ToolResult> }
+
 let private str (value: string) : obj = box value
 let private boolValue (value: bool) : obj = box value
 let private intValue (value: int) : obj = box value
@@ -199,6 +207,106 @@ let completeToolCall (id: RequestId) (result: ToolResult) : string =
             [ "content", content ]
 
     buildResult id (rawObject fields |> rawToJson)
+
+/// The POST/JSON subset of Streamable HTTP for an asynchronous MCP dispatcher.
+/// `None` represents an accepted notification; `Some json` is a JSON-RPC response.
+let streamableHttpAsync (dispatch: string -> Async<string option>) : HttpHandler =
+    fun (_: HttpFunc) (ctx: HttpContext) ->
+        task {
+            let! body = ctx.ReadBodyFromRequestAsync()
+            let! result = dispatch body |> startAsTask
+
+            match result with
+            | None ->
+                ctx.SetStatusCode 202
+                return! ctx.WriteBytesAsync [||]
+            | Some json ->
+                ctx.SetStatusCode 200
+                ctx.SetContentType "application/json"
+                return! ctx.WriteBytesAsync(Encoding.UTF8.GetBytes json)
+        }
+
+/// Explicit, typed MCP tool registration. This is the Fable-portable counterpart
+/// to reflection/attribute-based registration in runtime-specific MCP SDKs.
+module Tools =
+
+    /// Compiler-facing constructor used by the inline typed builders.
+    [<System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)>]
+    let defineCore (name: string) (inputSchemaJson: string) (execute: string -> Async<ToolResult>) : ToolDefinition =
+        { ProtocolTool =
+            { Name = name
+              Description = ""
+              InputSchemaJson = inputSchemaJson }
+          Execute = execute }
+
+    /// Define an asynchronous tool. Its input schema and decoder come from the same
+    /// TypedJson type walk; note that TypedJson may coerce compatible primitives.
+    let inline define<'Input> (name: string) (execute: 'Input -> Async<ToolResult>) : ToolDefinition =
+        let invoke argumentsJson =
+            async {
+                match tryDeserialize<'Input> argumentsJson with
+                | Ok arguments -> return! execute arguments
+                | Error _ ->
+                    return
+                        { Content = "Invalid tool arguments"
+                          IsError = true }
+            }
+
+        defineCore name (schemaFor typeof<'Input>) invoke
+
+    /// Define a synchronous tool without manually wrapping its result in `async`.
+    let inline defineSync<'Input> (name: string) (execute: 'Input -> ToolResult) : ToolDefinition = define name (execute >> async.Return)
+
+    /// Set the human-readable description returned by `tools/list`.
+    let description (text: string) (definition: ToolDefinition) : ToolDefinition =
+        { definition with
+            ProtocolTool =
+                { definition.ProtocolTool with
+                    Description = text } }
+
+    /// The protocol descriptions consumed by the transport-independent MCP core.
+    let protocolTools (definitions: ToolDefinition list) : Tool list = definitions |> List.map _.ProtocolTool
+
+    let private validate (definitions: ToolDefinition list) =
+        let duplicate =
+            definitions
+            |> List.groupBy _.ProtocolTool.Name
+            |> List.tryFind (fun (_, definitions) -> List.length definitions > 1)
+
+        match duplicate with
+        | Some(name, _) -> invalidArg "definitions" $"Duplicate MCP tool name: %s{name}"
+        | None -> ()
+
+    /// Build an asynchronous dispatcher once at composition time. Protocol parsing
+    /// remains in `handleRequest`; only a `CallTool` action enters application code.
+    let dispatcher (server: Server) (definitions: ToolDefinition list) : string -> Async<string option> =
+        validate definitions
+        let tools = protocolTools definitions
+
+        fun body ->
+            async {
+                match handleRequest server tools body with
+                | NoResponse -> return None
+                | Respond response -> return Some response
+                | CallTool(id, call) ->
+                    let definition =
+                        definitions
+                        |> List.find (fun definition -> definition.ProtocolTool.Name = call.Name)
+
+                    let! outcome =
+                        definition.Execute call.ArgumentsJson
+                        |> Async.Catch
+
+                    match outcome with
+                    | Choice1Of2 result -> return Some(completeToolCall id result)
+                    | Choice2Of2 _ -> return Some(buildError id -32603 "Internal error")
+            }
+
+    /// Mount typed tools as the synchronous-response subset of Streamable HTTP.
+    /// Authentication, transport headers, sessions and timeouts remain composable policy.
+    let host (server: Server) (definitions: ToolDefinition list) : HttpHandler =
+        dispatcher server definitions
+        |> streamableHttpAsync
 
 /// The POST/JSON subset of Streamable HTTP for a synchronous MCP dispatcher.
 /// An empty result represents an accepted notification and is returned as HTTP 202.

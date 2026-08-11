@@ -23,7 +23,10 @@ let endpoints =
           [ route "/greet" (validateJson<Model> (fun m -> text $"Hello, {m.Name}"))
             |> summary "Greet someone"
             |> accepts<Model>
-            |> respondsWith<string> 200 "text/plain" ] ]
+            |> respondsWith<string> 200 "text/plain"
+
+            // See app/McpExample.fs: no BEAM-specific tool mapping is required.
+            route "/mcp" McpExample.handler ] ]
 
 /// The OpenAPI document is rendered once here, at composition time, and the spec handler
 /// closes over the resulting string. That is what makes it work under Cowboy, which spawns a

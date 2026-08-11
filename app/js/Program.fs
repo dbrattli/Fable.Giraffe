@@ -33,6 +33,8 @@ let webApp =
 
           route "/echo" >=> echo
 
+          POST >=> route "/mcp" >=> McpExample.handler
+
           route "/log" |> loggingHandler ]
 
 WebHostBuilder()
