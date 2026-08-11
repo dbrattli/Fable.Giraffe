@@ -1,11 +1,24 @@
 ---
-last_commit_released: b7006e20da54b25db6fddf271d3f5f424de6b62a
+last_commit_released: 0a5c8e8cec66102ddd569b950cc840734fe1d9be
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.4.0 - 2026-08-11
+
+### 🚀 Features
+
+* Add portable MCP protocol handling (#85) ([412ee0b](https://github.com/dbrattli/Fable.Giraffe/commit/412ee0badb26cbe23ff167eb6edb8cbcac61abf2))
+* Add typed MCP tool hosting (#86) ([0a5c8e8](https://github.com/dbrattli/Fable.Giraffe/commit/0a5c8e8cec66102ddd569b950cc840734fe1d9be))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Read request headers from Cowboy instead of returning empty (#80) ([30c29ca](https://github.com/dbrattli/Fable.Giraffe/commit/30c29cac9041e8f95bf8005f21c1ec92129ed983))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/b7006e20da54b25db6fddf271d3f5f424de6b62a..0a5c8e8cec66102ddd569b950cc840734fe1d9be)</small></strong>
 
 ## 5.3.1 - 2026-08-06
 
