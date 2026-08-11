@@ -13,10 +13,8 @@ let server =
       ProtocolVersions = [ "2025-11-25" ] }
 
 let tools =
-    [ Tools.defineSync "greet" (fun input ->
-          { Content = $"Hello, %s{input.Name}!"
-            IsError = false })
-      |> Tools.description "Greet someone by name" ]
+    [ Tools.tool "greet" (fun input -> ToolResult.text $"Hello, %s{input.Name}!")
+      |> Tools.describe "Greet someone by name" ]
 
 /// The same typed tool and Streamable HTTP handler run on Python, JavaScript and BEAM.
-let handler: HttpHandler = Tools.host server tools
+let handler: HttpHandler = Tools.handler server tools

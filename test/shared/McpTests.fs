@@ -22,13 +22,11 @@ let private tools =
 type EchoInput = { Text: string }
 
 let private typedTools =
-    [ Tools.defineSync "echo" (fun input ->
-          { Content = input.Text
-            IsError = false })
-      |> Tools.description "Echo text"
+    [ Tools.tool "echo" (fun input -> ToolResult.text input.Text)
+      |> Tools.describe "Echo text"
 
-      Tools.defineSync "explode" (fun (_: EchoInput) -> failwith "application secret")
-      |> Tools.description "Throw an exception" ]
+      Tools.toolAsync "explode" (fun (_: EchoInput) -> async { return failwith "application secret" })
+      |> Tools.describe "Throw an exception" ]
 
 let private responseJson =
     function
@@ -239,6 +237,13 @@ let tests =
           )
 
           test (
+              "tool result helpers construct success and error results",
+              fun _ ->
+                  assertThat (ToolResult.text "ok") (isEqualTo { Content = "ok"; IsError = false })
+                  assertThat (ToolResult.error "no") (isEqualTo { Content = "no"; IsError = true })
+          )
+
+          test (
               "typed tool registration derives its protocol description and input schema",
               fun _ ->
                   let echo = Tools.protocolTools typedTools |> List.head
@@ -342,7 +347,7 @@ let tests =
                               """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hosted"}}}"""
 
                           let ctx, readBody = TestContext.create (method = "POST", body = request)
-                          let! result = Tools.host server typedTools next ctx
+                          let! result = Tools.handler server typedTools next ctx
                           assertThat result.IsSome isTrue
                           assertThat ctx.Response.StatusCode (isEqualTo 200)
 

@@ -26,6 +26,15 @@ type ToolCall = { Name: string; ArgumentsJson: string }
 
 type ToolResult = { Content: string; IsError: bool }
 
+[<RequireQualifiedAccess>]
+module ToolResult =
+
+    /// A successful text result for the common MCP tool case.
+    let text (content: string) : ToolResult = { Content = content; IsError = false }
+
+    /// A text result that reports an application-level tool error to the caller.
+    let error (content: string) : ToolResult = { Content = content; IsError = true }
+
 type RequestId = private RequestId of obj
 
 type Action =
@@ -246,10 +255,7 @@ module Tools =
             async {
                 match tryDeserialize<'Input> argumentsJson with
                 | Ok arguments -> return! execute arguments
-                | Error _ ->
-                    return
-                        { Content = "Invalid tool arguments"
-                          IsError = true }
+                | Error _ -> return ToolResult.error "Invalid tool arguments"
             }
 
         defineCore name (schemaFor typeof<'Input>) invoke
@@ -257,12 +263,23 @@ module Tools =
     /// Define a synchronous tool without manually wrapping its result in `async`.
     let inline defineSync<'Input> (name: string) (execute: 'Input -> ToolResult) : ToolDefinition = define name (execute >> async.Return)
 
+    /// Define a synchronous typed tool. This is the concise application-facing
+    /// alias for `defineSync`.
+    let inline tool<'Input> (name: string) (execute: 'Input -> ToolResult) : ToolDefinition = defineSync name execute
+
+    /// Define an asynchronous typed tool. This is the concise application-facing
+    /// alias for `define`.
+    let inline toolAsync<'Input> (name: string) (execute: 'Input -> Async<ToolResult>) : ToolDefinition = define name execute
+
     /// Set the human-readable description returned by `tools/list`.
     let description (text: string) (definition: ToolDefinition) : ToolDefinition =
         { definition with
             ProtocolTool =
                 { definition.ProtocolTool with
                     Description = text } }
+
+    /// Set the human-readable description returned by `tools/list`.
+    let describe (text: string) (definition: ToolDefinition) : ToolDefinition = description text definition
 
     /// The protocol descriptions consumed by the transport-independent MCP core.
     let protocolTools (definitions: ToolDefinition list) : Tool list = definitions |> List.map _.ProtocolTool
@@ -307,6 +324,9 @@ module Tools =
     let host (server: Server) (definitions: ToolDefinition list) : HttpHandler =
         dispatcher server definitions
         |> streamableHttpAsync
+
+    /// Create a classic Giraffe handler for the typed tools.
+    let handler (server: Server) (definitions: ToolDefinition list) : HttpHandler = host server definitions
 
 /// The POST/JSON subset of Streamable HTTP for a synchronous MCP dispatcher.
 /// An empty result represents an accepted notification and is returned as HTTP 202.
