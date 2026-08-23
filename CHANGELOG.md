@@ -1,12 +1,15 @@
 ---
-last_commit_released: 7ee28b23b8f3de5f6c434a20d837e1afa1da15a1
+last_commit_released: 6d9c7fbf31da255fb0ef49320a18dd75e953d9c7
 name: Fable.Giraffe
-force_version: 5.5.0
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.5.0 - 2026-08-23
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/7ee28b23b8f3de5f6c434a20d837e1afa1da15a1..6d9c7fbf31da255fb0ef49320a18dd75e953d9c7)</small></strong>
 
 ## 5.0.0 - 2026-08-23
 
