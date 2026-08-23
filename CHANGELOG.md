@@ -1,6 +1,7 @@
 ---
 last_commit_released: 0a5c8e8cec66102ddd569b950cc840734fe1d9be
 name: Fable.Giraffe
+force_version: 5.0.0
 ---
 
 # Changelog
