@@ -35,7 +35,7 @@ type HttpRequest(req: Req) =
     /// Cowboy is the normalising layer here — a client's `Authorization` arrives as
     /// `authorization`, and repeated headers are folded into a single comma-joined value — so
     /// this is a plain map read rather than a reimplementation of header semantics.
-    member private x.HeaderPairs = Maps.maps.to_list (CowboyReq.headers req)
+    member private x.HeaderPairs = Maps.toArray (CowboyReq.headers req)
 
     member x.GetTypedHeaders() : RequestHeaders =
         // RequestHeaders reads rows of [name; value; ...], the same shape the Python/ASGI
