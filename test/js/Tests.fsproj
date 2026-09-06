@@ -19,7 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="5.2.0" />
-    <PackageReference Include="Scriptorium.Quill" Version="0.5.1" />
+    <PackageReference Include="Scriptorium.Quill" Version="0.7.0" />
     <PackageReference Include="Scriptorium.Nib" Version="0.4.1" />
   </ItemGroup>
   <ItemGroup>

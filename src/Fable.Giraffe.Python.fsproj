@@ -45,11 +45,11 @@
     <!-- Core is 5.0.1 (the $ref-collision and date-parsing fixes); the backend
          shims are unchanged since 5.0.0 and were not rebuilt. They resolve
          against whichever core NuGet picks, which is the 5.0.1 requested here. -->
-    <PackageReference Include="Fable.TypedJson" Version="5.1.0" />
-    <PackageReference Include="Fable.TypedJson.Python" Version="5.1.0" />
-    <PackageReference Include="Fable.Logging" Version="1.0.0" />
-    <PackageReference Include="Fable.Logging.Structlog" Version="1.0.0" />
-    <PackageReference Include="Fable.Python" Version="5.4.0" />
+    <PackageReference Include="Fable.TypedJson" Version="5.4.0" />
+    <PackageReference Include="Fable.TypedJson.Python" Version="5.4.0" />
+    <PackageReference Include="Fable.Logging" Version="1.0.1" />
+    <PackageReference Include="Fable.Logging.Structlog" Version="1.0.1" />
+    <PackageReference Include="Fable.Python" Version="5.5.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- See src/beam: the shared ../*.fs were never packaged, and `**\*.fs` swept in obj/.
