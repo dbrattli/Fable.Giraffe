@@ -12,10 +12,10 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "fable-library==5.13.0",
+    "fable-library==5.15.0",
     "structlog>=26.1.0,<27",
     "starlette>=1.6.0,<2",
-    "pydantic>=2.13.4",
+    "pydantic>=2.13.5",
 ]
 
 [dependency-groups]
