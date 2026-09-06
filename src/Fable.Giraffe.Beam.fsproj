@@ -50,12 +50,12 @@
          Fable.TypedJson requires, which NU1605 reports as a downgrade. -->
     <PackageReference Update="FSharp.Core" Version="11.0.100" />
     <PackageReference Include="Fable.Core" Version="5.2.0" />
-    <PackageReference Include="Fable.TypedJson" Version="5.3.0" />
-    <PackageReference Include="Fable.TypedJson.Beam" Version="5.3.0" />
-    <PackageReference Include="Fable.Beam" Version="5.0.0-rc.37" />
-    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0-rc.9" />
-    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0-rc.24" />
-    <PackageReference Include="Fable.Logging" Version="1.0.0" />
-    <PackageReference Include="Fable.Logging.Beam" Version="1.0.0" />
+    <PackageReference Include="Fable.TypedJson" Version="5.4.0" />
+    <PackageReference Include="Fable.TypedJson.Beam" Version="5.4.0" />
+    <PackageReference Include="Fable.Beam" Version="5.0.0" />
+    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0" />
+    <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0" />
+    <PackageReference Include="Fable.Logging" Version="1.0.1" />
+    <PackageReference Include="Fable.Logging.Beam" Version="1.0.1" />
   </ItemGroup>
 </Project>
