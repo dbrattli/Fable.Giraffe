@@ -1,11 +1,19 @@
 ---
-last_commit_released: 6d9c7fbf31da255fb0ef49320a18dd75e953d9c7
+last_commit_released: 117544de6f64a589f6fdff101d5a61d3c5c0e398
 name: Fable.Giraffe
 ---
 
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## 5.5.1 - 2026-10-07
+
+### 🐞 Bug Fixes
+
+* *(beam)* Avoid status setter collision with Fable 5.20 (#113) ([117544d](https://github.com/dbrattli/Fable.Giraffe/commit/117544de6f64a589f6fdff101d5a61d3c5c0e398))
+
+<strong><small>[View changes on Github](https://github.com/dbrattli/Fable.Giraffe/compare/6d9c7fbf31da255fb0ef49320a18dd75e953d9c7..117544de6f64a589f6fdff101d5a61d3c5c0e398)</small></strong>
 
 ## 5.5.0 - 2026-08-23
 
