@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="../shared/Helpers.fs" />
     <Compile Include="TestContext.fs" />
+    <Compile Include="HttpResponseTests.fs" />
     <Compile Include="../shared/HandlerTests.fs" />
     <Compile Include="../shared/RoutingTests.fs" />
     <Compile Include="../shared/EndpointTests.fs" />

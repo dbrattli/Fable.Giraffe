@@ -9,9 +9,12 @@ open type Scriptorium.Quill.Runner
 [<EntryPoint>]
 let main _ =
     runTests
-        [ HandlerTests.tests
-          RoutingTests.tests
-          EndpointTests.tests
-          OpenApiTests.tests
-          RemotingTests.tests
-          McpTests.tests ]
+        [
+            HttpResponseTests.tests
+            HandlerTests.tests
+            RoutingTests.tests
+            EndpointTests.tests
+            OpenApiTests.tests
+            RemotingTests.tests
+            McpTests.tests
+        ]
