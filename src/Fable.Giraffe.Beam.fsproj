@@ -53,7 +53,7 @@
     <PackageReference Include="Fable.TypedJson" Version="5.5.0" />
     <PackageReference Include="Fable.TypedJson.Beam" Version="5.5.0" />
     <PackageReference Include="Fable.Beam" Version="5.1.0" />
-    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.0" />
+    <PackageReference Include="Fable.Beam.Jsx" Version="5.0.1" />
     <PackageReference Include="Fable.Beam.Cowboy" Version="5.0.0" />
     <PackageReference Include="Fable.Logging" Version="1.0.1" />
     <PackageReference Include="Fable.Logging.Beam" Version="1.0.1" />
