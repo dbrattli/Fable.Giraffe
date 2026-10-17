@@ -116,10 +116,7 @@ type HttpResponse() =
     member x.SetHttpHeader(key: string, value: obj) =
         responseHeaders <- (key, value.ToString() :> obj) :: responseHeaders
 
-    // decision: inline the convenience method so BEAM emits only the property setter.
-    // TODO: Once the minimum supported Fable version distinguishes BEAM setter/method names, remove inline and these workaround comments.
-    // Re-run the BEAM status/redirect tests and verify distinct definitions and correct call sites in generated Erlang.
-    member inline x.SetStatusCode(status: int) = x.StatusCode <- status
+    member x.SetStatusCode(status: int) = statusCode <- Some status
 
     member x.Redirect(location: string, permanent: bool) =
         let sc = if permanent then 301 else 302
