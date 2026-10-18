@@ -10,7 +10,7 @@
       "rollForward": false
     },
     "fantomas": {
-      "version": "8.0.8",
+      "version": "8.0.10",
       "commands": [
         "fantomas"
       ],
@@ -24,7 +24,7 @@
       "rollForward": false
     },
     "paket": {
-      "version": "11.0.0",
+      "version": "11.0.1",
       "commands": [
         "paket"
       ],
