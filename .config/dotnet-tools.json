@@ -3,14 +3,14 @@
   "isRoot": true,
   "tools": {
     "fable": {
-      "version": "5.24.0",
+      "version": "5.28.0",
       "commands": [
         "fable"
       ],
       "rollForward": false
     },
     "fantomas": {
-      "version": "8.1.0",
+      "version": "8.1.3",
       "commands": [
         "fantomas"
       ],
@@ -24,7 +24,7 @@
       "rollForward": false
     },
     "paket": {
-      "version": "11.0.1",
+      "version": "12.0.0",
       "commands": [
         "paket"
       ],
